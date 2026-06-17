@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Env
+venv/
+
+# Environment Variables
+.env
+
+# Storage
+backend/storage/files/*
+!backend/storage/files/.gitkeep
+
+backend/storage/vector_db/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/.next/
