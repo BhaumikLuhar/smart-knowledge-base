@@ -1,5 +1,12 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
+from dotenv import load_dotenv
+import os
+from pydantic_settings import BaseSettings,SettingsConfigDict
 
+ROOT = Path(__file__).resolve().parents[2]
+
+# Force load .env and overwrite existing env vars
+load_dotenv(ROOT / ".env", override=True)
 
 class Settings(BaseSettings):
     # LLM
@@ -43,3 +50,28 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+
+# from pathlib import Path
+# from dotenv import load_dotenv
+# import os
+# from pydantic_settings import BaseSettings
+
+# ROOT = Path(__file__).resolve().parents[2]
+
+# # Force load .env and overwrite existing env vars
+# load_dotenv(ROOT / ".env", override=True)
+
+# print("OS DATABASE_URL =", os.getenv("DATABASE_URL"))
+
+
+# class Settings(BaseSettings):
+#     DATABASE_URL: str
+#     GROQ_API_KEY: str
+#     JWT_SECRET: str
+
+
+# settings = Settings()
+
+# print("SETTINGS DATABASE_URL =", settings.DATABASE_URL)

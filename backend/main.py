@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 from routers.admin import router as admin_router
 from routers.auth import router as auth_router
@@ -7,10 +8,29 @@ from routers.chat import router as chat_router
 from routers.documents import router as documents_router
 
 from core.config import settings
+from core.database import create_db_pool, close_db_pool
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Startup
+    """
+    app.state.db_pool = await create_db_pool()
+    print("✅ PostgreSQL connection pool initialized")
+
+    yield
+
+    """
+    Shutdown
+    """
+    await close_db_pool(app.state.db_pool)
+    print("✅ PostgreSQL connection pool closed")
+
 
 app=FastAPI(
     title="smart-knowledge-bank",
-    version="1.0"
+    version="1.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
