@@ -61,6 +61,7 @@ async def mark_migration_applied(
 async def run_migrations():
     conn = await asyncpg.connect(
         settings.DATABASE_URL,
+        statement_cache_size=0,
         ssl="require"
     )
 

@@ -1,5 +1,5 @@
 from typing import Any
-
+import json
 import asyncpg
 
 class SQLStore:
@@ -19,7 +19,13 @@ class SQLStore:
         """
 
         columns=list(data.keys())
-        values=list(data.values())
+        values = []
+
+        for value in data.values():
+            if isinstance(value, (dict, list)):
+                values.append(json.dumps(value))
+            else:
+                values.append(value)
 
         placeholders= ", ".join(
             f"${i}"

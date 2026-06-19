@@ -17,11 +17,11 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # Vector DB
-    CHROMA_PATH: str = "./backend/storage/vector_db"
+    CHROMA_PATH: Path = ROOT / "backend" / "storage" / "vector_db"
     CHROMA_COLLECTION: str = "skb_chunks"
 
     # File Storage
-    UPLOAD_DIR: str = "./backend/storage/files"
+    UPLOAD_DIR: Path = ROOT / "backend" / "storage" / "files"
 
     # Chunking
     CHUNK_SIZE: int = 800
@@ -50,7 +50,6 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
 
 
 # from pathlib import Path

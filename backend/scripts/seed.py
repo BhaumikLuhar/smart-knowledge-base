@@ -14,6 +14,7 @@ async def seed():
 
     conn = await asyncpg.connect(
         settings.DATABASE_URL,
+        statement_cache_size=0,
         ssl="require"
     )
 
