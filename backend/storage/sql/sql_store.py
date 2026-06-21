@@ -18,6 +18,24 @@ class SQLStore:
         INSERT row and return inserted record.
         """
 
+        ALLOWED_TABLES = {
+            "departments",
+            "users",
+            "documents",
+            "document_versions",
+            "chunks",
+            "permissions",
+            "sessions",
+            "messages",
+            "audit_logs",
+            "metrics"
+        }
+
+        if table not in ALLOWED_TABLES:
+            raise ValueError(
+                f"Invalid table: {table}"
+            )
+
         columns=list(data.keys())
         values = []
 
@@ -49,6 +67,24 @@ class SQLStore:
         """
         SELECT rows with optional filters.
         """
+
+        ALLOWED_TABLES = {
+            "departments",
+            "users",
+            "documents",
+            "document_versions",
+            "chunks",
+            "permissions",
+            "sessions",
+            "messages",
+            "audit_logs",
+            "metrics"
+        }
+
+        if table not in ALLOWED_TABLES:
+            raise ValueError(
+                f"Invalid table: {table}"
+            )
 
         filters=filters or {}
 
@@ -87,13 +123,50 @@ class SQLStore:
         UPDATE row by ID and return updated record.
         """
 
-        columns = list(data.keys())
-        values = list(data.values())
+        ALLOWED_TABLES = {
+            "departments",
+            "users",
+            "documents",
+            "document_versions",
+            "chunks",
+            "permissions",
+            "sessions",
+            "messages",
+            "audit_logs",
+            "metrics"
+        }
 
-        set_clause = ", ".join(
-            f"{column} = ${i}"
-            for i, column in enumerate(columns, start=1)
-        )
+        if table not in ALLOWED_TABLES:
+            raise ValueError(
+                f"Invalid table: {table}"
+            )
+
+        columns = []
+        values = []
+
+        for key, value in data.items():
+
+            if key == "updated_at" and value == "NOW()":
+                columns.append(
+                    f"{key} = NOW()"
+                )
+                continue
+
+            columns.append(
+                f"{key} = ${len(values)+1}"
+            )
+
+            if isinstance(
+                value,
+                (dict, list)
+            ):
+                values.append(
+                    json.dumps(value)
+                )
+            else:
+                values.append(value)
+
+        set_clause = ", ".join(columns)
 
         query = f"""
         UPDATE {table}
@@ -119,6 +192,24 @@ class SQLStore:
         """
         Delete row by ID.
         """
+
+        ALLOWED_TABLES = {
+            "departments",
+            "users",
+            "documents",
+            "document_versions",
+            "chunks",
+            "permissions",
+            "sessions",
+            "messages",
+            "audit_logs",
+            "metrics"
+        }
+
+        if table not in ALLOWED_TABLES:
+            raise ValueError(
+                f"Invalid table: {table}"
+            )
 
         query = f"""
         DELETE FROM {table}

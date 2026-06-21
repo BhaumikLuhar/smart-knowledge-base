@@ -6,6 +6,9 @@ from fastapi import (
     Form,
     UploadFile
 )
+from core.knowledge.permission_service import (
+    PermissionService
+)
 
 from core.knowledge.admin_auth import (
     verify_admin_token
@@ -17,6 +20,15 @@ from storage.sql.dependencies import (
     get_sql_store
 )
 from storage.sql.sql_store import SQLStore
+from core.knowledge.department_service import (
+    DepartmentService
+)
+
+from core.knowledge.schemas import (
+    CreateDepartmentRequest, UpdateDocumentRequest, CreatePermissionRequest
+)
+
+from fastapi import HTTPException
 
 router = APIRouter(
     prefix="/api/v1/admin",
@@ -111,3 +123,160 @@ async def get_document(
         }
 
     return result[0]
+
+
+
+@router.get(
+    "/departments",
+    dependencies=[
+        Depends(verify_admin_token)
+    ]
+)
+async def list_departments(
+    sql_store: SQLStore = Depends(
+        get_sql_store
+    )
+):
+    service = DepartmentService(sql_store)
+
+    return await service.list_departments()
+
+
+@router.post(
+    "/departments",
+    dependencies=[
+        Depends(verify_admin_token)
+    ]
+)
+async def create_department(
+    payload: CreateDepartmentRequest,
+    sql_store: SQLStore = Depends(
+        get_sql_store
+    )
+):
+    service = DepartmentService(
+        sql_store
+    )
+
+    department = await service.create_department(
+        name=payload.name,
+        display_name=payload.display_name,
+        description=payload.description
+    )
+
+    return department
+
+
+@router.get(
+    "/departments/{department_id}/documents",
+    dependencies=[
+        Depends(verify_admin_token)
+    ]
+)
+async def get_department_documents(
+    department_id: str,
+    sql_store: SQLStore = Depends(
+        get_sql_store
+    )
+):
+    service = DepartmentService(
+        sql_store
+    )
+
+    await service.get_department(
+        department_id
+    )
+
+    documents = await sql_store.execute_raw(
+        """
+        SELECT
+            *
+        FROM documents
+        WHERE department_id = $1
+        ORDER BY created_at DESC
+        """,
+        (department_id,)
+    )
+
+    return documents
+
+
+@router.put(
+    "/documents/{document_id}",
+    dependencies=[
+        Depends(verify_admin_token)
+    ]
+)
+async def update_document(
+    document_id: str,
+    payload: UpdateDocumentRequest,
+    sql_store: SQLStore = Depends(
+        get_sql_store
+    )
+):
+    service = DepartmentService(
+        sql_store
+    )
+
+    document = await service.update_document(
+        document_id=document_id,
+        department_id=payload.department_id,
+        visibility=payload.visibility,
+        metadata=payload.metadata.model_dump()
+    )
+
+    return document
+
+
+@router.delete(
+    "/documents/{document_id}",
+    dependencies=[
+        Depends(verify_admin_token)
+    ]
+)
+async def delete_document(
+    document_id: str,
+    sql_store: SQLStore = Depends(
+        get_sql_store
+    )
+):
+    service = DepartmentService(
+        sql_store
+    )
+
+    document = await service.soft_delete_document(
+        document_id
+    )
+
+    return {
+        "message": "Document deleted",
+        "document": document
+    }
+
+
+@router.post(
+    "/permissions",
+    dependencies=[
+        Depends(
+            verify_admin_token
+        )
+    ]
+)
+async def create_permission(
+    payload: CreatePermissionRequest,
+    sql_store: SQLStore = Depends(
+        get_sql_store
+    )
+):
+    service = PermissionService(
+        sql_store
+    )
+
+    permission = await service.create_permission(
+        role=payload.role,
+        department_id=payload.department_id,
+        can_access_department_id=
+            payload.can_access_department_id
+    )
+
+    return permission
