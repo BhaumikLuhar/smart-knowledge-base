@@ -335,3 +335,313 @@ User queries are embedded using the BGE recommended prefix:
 Represent this sentence for searching relevant passages:
 
 This improves retrieval quality for semantic search.
+
+
+---
+
+## Day 6 - Chroma Metadata Filtering Strategy
+
+### ADR-008: Store Permission-Relevant Metadata in Chroma
+
+**Context**
+
+Week 2 introduces permission-aware retrieval.
+
+During semantic search, the system must restrict results before they reach the application layer.
+
+Performing permission filtering after retrieval would:
+
+* Increase unnecessary vector search results
+* Waste retrieval bandwidth
+* Increase latency
+* Complicate authorization logic
+
+### Decision
+
+Store permission-relevant metadata directly inside Chroma for every chunk.
+
+Current metadata structure:
+
+```python
+{
+    "document_id": "...",
+    "chunk_id": "...",
+    "department_id": "...",
+    "visibility": "...",
+    "document_name": "...",
+    "chunk_index": 0,
+    "page_number": -1
+}
+```
+
+### Current Usage
+
+Department-restricted retrieval:
+
+```python
+where = {
+    "department_id": department_id
+}
+```
+
+### Consequences
+
+Benefits:
+
+* Fast pre-filtering during vector search
+* Reduced retrieval noise
+* Lower latency
+* Cleaner permission implementation
+
+Tradeoffs:
+
+* Metadata duplicated between PostgreSQL and Chroma
+* Additional storage overhead
+
+This duplication is accepted because retrieval performance is prioritized over storage efficiency.
+
+---
+
+## Day 6 - Shared Identifier Strategy
+
+### ADR-009: Use Chunk UUID as Both SQL and Vector Identifier
+
+**Context**
+
+Each chunk exists in two systems:
+
+1. PostgreSQL
+2. Chroma
+
+A reliable mapping between systems is required.
+
+### Decision
+
+Generate a UUID during chunk creation.
+
+Use the same UUID as:
+
+* chunks.id
+* Chroma vector id
+* chunks.embedding_ref
+
+Example:
+
+```text
+Chunk ID:
+dee745ed-376b-43e4-96d1-11763fdc24dc
+
+PostgreSQL:
+chunks.id
+
+Chroma:
+vector id
+
+Reference:
+embedding_ref
+```
+
+### Consequences
+
+Benefits:
+
+* Direct cross-system lookup
+* Simplified debugging
+* Easier future deletion workflows
+* Easier re-indexing
+
+Tradeoffs:
+
+* Requires UUID generation before persistence
+
+This tradeoff is acceptable.
+
+---
+
+## Day 6 - Singleton Resource Strategy
+
+### ADR-010: Use Singleton Pattern for Heavy Retrieval Components
+
+**Context**
+
+Loading embedding models and vector database connections repeatedly would significantly increase:
+
+* Startup time
+* Memory usage
+* Request latency
+
+### Decision
+
+Use singleton instances for:
+
+#### Embedder
+
+```python
+Embedder.get_instance()
+```
+
+#### VectorStore
+
+```python
+VectorStore.get_instance()
+```
+
+### Consequences
+
+Benefits:
+
+* Embedding model loaded once
+* Reduced memory consumption
+* Faster ingestion
+* Faster retrieval
+
+Tradeoffs:
+
+* Shared application state
+* More care required during testing
+
+For the current architecture, benefits outweigh drawbacks.
+
+---
+
+## Day 7 - Storage Boundary Enforcement
+
+### ADR-011: Enforce Storage Layer Isolation
+
+**Context**
+
+The system uses:
+
+* PostgreSQL
+* Chroma
+
+Without architectural boundaries, business services can become tightly coupled to infrastructure implementations.
+
+This makes future replacement of storage technologies difficult.
+
+### Decision
+
+Knowledge services and retrieval services must never directly import:
+
+```python
+asyncpg
+chromadb
+```
+
+Allowed architecture:
+
+```text
+Knowledge Layer
+        ↓
+Storage Layer
+        ↓
+Database
+```
+
+Examples:
+
+```python
+from storage.sql.sql_store import SQLStore
+
+from storage.vector.vector_store import VectorStore
+```
+
+### Consequences
+
+Benefits:
+
+* Cleaner architecture
+* Easier testing
+* Easier refactoring
+* Future vector database replacement
+* Future database replacement
+
+Tradeoffs:
+
+* Additional abstraction layer
+
+This tradeoff is accepted.
+
+---
+
+## Day 7 - Background Ingestion Strategy
+
+### ADR-012: Use FastAPI BackgroundTasks for Initial Ingestion
+
+**Context**
+
+Document ingestion involves:
+
+* Parsing
+* Chunking
+* Embedding generation
+* Vector persistence
+
+Running these operations during the upload request would significantly increase response time.
+
+### Decision
+
+Use FastAPI BackgroundTasks to execute ingestion asynchronously.
+
+Workflow:
+
+```text
+Upload Request
+        ↓
+Document Registration
+        ↓
+HTTP Response
+        ↓
+Background Ingestion
+```
+
+### Consequences
+
+Benefits:
+
+* Fast upload response
+* Better user experience
+* Simpler implementation
+
+Tradeoffs:
+
+* Tasks are process-local
+* Server restart may interrupt ingestion
+
+This limitation is acceptable for Week 1.
+
+Future phases may replace this with:
+
+* Celery
+* RQ
+* Dramatiq
+* Dedicated worker services
+
+---
+
+## Week 1 Summary
+
+At the end of Week 1 the system supports:
+
+* Department management
+* Document upload
+* Metadata storage
+* Loader registry
+* Background ingestion
+* Chunk generation
+* PostgreSQL chunk persistence
+* Embedding generation
+* Chroma vector persistence
+* Semantic search
+* Department-level filtering
+* Administrative Knowledge Base UI
+* Status polling
+* Audit logging
+
+Week 2 introduces:
+
+* Authentication
+* Permission enforcement
+* Session management
+* Secure retrieval
+* User-aware search
