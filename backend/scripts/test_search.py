@@ -18,12 +18,15 @@ def main():
         embedder.embed_query(query)
     )
 
+    department_id = input(
+        "Department ID: "
+    )
     results = vector_store.query(
         query_embedding=query_embedding,
         top_k=3,
         where={
             "department_id":
-            "e566be91-232c-49c5-b1fa-cabff29b38f1"
+            department_id
         }
     )
 

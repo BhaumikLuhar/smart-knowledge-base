@@ -1,5 +1,3 @@
-from importlib import metadata
-import json
 import logging
 from pathlib import Path
 from core.knowledge.chunker import chunk_text

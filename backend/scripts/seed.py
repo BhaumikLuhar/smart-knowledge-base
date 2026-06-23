@@ -20,6 +20,46 @@ async def seed():
 
     try:
 
+        department_definitions = [
+            (
+                "engineering",
+                "Engineering",
+                "Engineering Department"
+            ),
+            (
+                "hr",
+                "Human Resources",
+                "Human Resources Department"
+            ),
+            (
+                "public",
+                "Public",
+                "Public Knowledge Base"
+            )
+        ]
+
+        for name, display_name, description in department_definitions:
+
+            await conn.execute(
+                """
+                INSERT INTO departments (
+                    name,
+                    display_name,
+                    description
+                )
+                VALUES (
+                    $1,
+                    $2,
+                    $3
+                )
+                ON CONFLICT (name)
+                DO NOTHING
+                """,
+                name,
+                display_name,
+                description
+            )
+
         print("🌱 Starting seed...")
 
         departments = {}
