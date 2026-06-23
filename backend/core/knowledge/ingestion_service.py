@@ -5,6 +5,8 @@ from pathlib import Path
 from core.knowledge.chunker import chunk_text
 from core.knowledge.loaders.factory import get_loader
 from storage.sql.sql_store import SQLStore
+from core.retrieval.embedder import Embedder
+from storage.vector.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +156,106 @@ async def ingest_document(
             f"{inserted_count} chunks "
             f"for document "
             f"{document_id}"
+        )
+
+        #
+        # STEP 6b
+        # generate embeddings
+        #
+        texts = [
+            chunk["text"]
+            for chunk in chunks
+        ]
+
+        embeddings = (
+            Embedder.get_instance()
+            .embed(texts)
+        )
+
+        #
+        # STEP 6c
+        # save to Chroma
+        #
+        vector_store = (
+            VectorStore.get_instance()
+        )
+
+        vector_ids = [
+            chunk["id"]
+            for chunk in chunks
+        ]
+
+        metadatas = []
+
+        for chunk in chunks:
+
+            metadatas.append(
+                {
+                    "document_id":
+                        str(
+                            chunk["document_id"]
+                        ),
+
+                    "chunk_id":
+                        str(
+                            chunk["id"]
+                        ),
+
+                    "department_id":
+                        str(
+                            chunk["department_id"]
+                        ),
+
+                    "visibility":
+                        chunk["visibility"],
+
+                    "document_name":
+                        document["name"],
+
+                    "chunk_index":
+                        int(
+                            chunk["chunk_index"]
+                        ),
+
+                    "page_number":
+                        chunk["page_number"]
+                        if chunk["page_number"]
+                        is not None
+                        else -1
+                }
+            )
+
+        vector_store.save(
+            ids=vector_ids,
+            embeddings=embeddings,
+            documents=texts,
+            metadatas=metadatas
+        )
+
+        logger.info(
+            f"Stored "
+            f"{len(vector_ids)} vectors "
+            f"in Chroma"
+        )
+
+        #
+        # STEP 6d
+        # mark chunks embedded
+        #
+        for chunk in chunks:
+
+            await sql_store.update(
+                "chunks",
+                chunk["id"],
+                {
+                    "embedding_ref":
+                        chunk["id"]
+                }
+            )
+
+        logger.info(
+            f"Updated "
+            f"{len(chunks)} embedding refs"
         )
 
         #

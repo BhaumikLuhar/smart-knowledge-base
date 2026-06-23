@@ -10,6 +10,9 @@ from routers.documents import router as documents_router
 from core.config import settings
 from core.database import create_db_pool, close_db_pool
 
+from core.retrieval.embedder import Embedder
+from storage.vector.vector_store import VectorStore
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -17,6 +20,20 @@ async def lifespan(app: FastAPI):
     """
     app.state.db_pool = await create_db_pool()
     print("✅ PostgreSQL connection pool initialized")
+
+    #
+    # Day 6
+    # Preload embedding model
+    #
+    Embedder.get_instance()
+    print("✅ Embedder initialized")
+
+    #
+    # Day 6
+    # Preload Chroma
+    #
+    VectorStore.get_instance()
+    print("✅ Chroma initialized")
 
     yield
 

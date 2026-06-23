@@ -313,3 +313,25 @@ The system can now:
 - Persist chunks
 - Track ingestion state
 - Recover from ingestion failures
+
+
+## Day 6 – Embedding Model Selection
+
+### Decision
+Selected BAAI/bge-small-en-v1.5 as the embedding model.
+
+### Rationale
+- Strong retrieval performance for RAG workloads
+- Lightweight compared to larger embedding models
+- 384-dimensional vectors reduce storage requirements
+- Fast inference on CPU
+- Open-source and local execution
+
+### Query Embedding Strategy
+Document chunks are embedded directly.
+
+User queries are embedded using the BGE recommended prefix:
+
+Represent this sentence for searching relevant passages:
+
+This improves retrieval quality for semantic search.
