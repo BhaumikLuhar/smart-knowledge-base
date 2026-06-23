@@ -206,3 +206,110 @@ Reasoning:
 - Simplifies recovery
 - Avoids orphaned vector references
 - Allows future cleanup jobs
+
+
+## Day 5 - Document Ingestion Pipeline
+
+Implemented document ingestion that converts uploaded documents into searchable text chunks stored in PostgreSQL.
+
+Reasoning:
+
+- Sentence-aware chunking improves retrieval quality
+- Background processing prevents upload requests from blocking
+- Chunk persistence enables validation before embeddings
+- Bulk inserts reduce database overhead
+- Failure tracking simplifies troubleshooting
+
+Configuration:
+
+```text
+Chunk Size: 800 characters
+Overlap: 100 characters
+```
+
+Workflow:
+
+```text
+Upload
+→ pending
+→ processing
+→ chunk generation
+→ chunk persistence
+→ ready
+```
+
+Stored Chunk Fields:
+
+```text
+document_id
+department_id
+visibility
+chunk_index
+text
+page_number
+```
+
+Current behavior:
+
+```text
+page_number = null
+```
+
+---
+
+## Day 5 - Error Handling
+
+Documents that produce no extractable text are not ingested.
+
+Current behavior:
+
+```text
+status = 'failed'
+metadata.ingestion_error
+```
+
+Reasoning:
+
+- Prevents ingestion crashes
+- Provides clear failure diagnostics
+- Supports future retry workflows
+
+---
+
+## Day 5 - File Path Strategy
+
+Uploaded document paths are stored as absolute filesystem paths.
+
+Reasoning:
+
+- Prevents path resolution issues
+- Works consistently across background tasks
+- Independent of current working directory
+
+---
+
+### Validation Results
+
+Verified:
+
+- Upload → Pending → Processing → Ready workflow
+- Background ingestion execution
+- Chunk creation
+- Multi-row database insertion
+- Audit log generation
+- Failure handling for invalid documents
+- UI polling updates
+- Processing indicators in frontend
+
+---
+
+### Day 5 Outcome
+
+The system can now:
+
+- Upload documents
+- Parse content
+- Generate chunks
+- Persist chunks
+- Track ingestion state
+- Recover from ingestion failures

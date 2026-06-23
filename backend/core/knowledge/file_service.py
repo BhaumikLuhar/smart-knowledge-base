@@ -111,4 +111,4 @@ class FileService:
 
         await upload_file.seek(0)
 
-        return str(file_path)
+        return str(file_path.resolve())

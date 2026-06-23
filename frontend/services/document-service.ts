@@ -9,6 +9,16 @@ export async function getDocuments() {
   );
 }
 
+
+export async function getDocument(
+  documentId: string
+) {
+  return apiGet(
+    `/api/v1/admin/documents/${documentId}`
+  );
+}
+
+
 export async function uploadDocument(
   formData: FormData
 ) {

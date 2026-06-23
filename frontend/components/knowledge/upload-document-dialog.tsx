@@ -29,7 +29,7 @@ import {
 
 import { Label } from "@/components/ui/label";
 
-import { uploadDocument } from "@/services/document-service";
+import { uploadDocument, getDocument } from "@/services/document-service";
 
 import { Department } from "@/types/department";
 
@@ -67,7 +67,10 @@ export default function UploadDocumentDialog({
 
             const formData = new FormData();
 
-            formData.append("file", file);
+            formData.append(
+                "file",
+                file
+            );
 
             formData.append(
                 "department_id",
@@ -84,7 +87,43 @@ export default function UploadDocumentDialog({
                 description
             );
 
-            await uploadDocument(formData);
+            const document =
+                await uploadDocument(
+                    formData
+                );
+
+            onUploaded();
+
+            const interval =
+                setInterval(
+                    async () => {
+                        try {
+
+                            const latest =
+                                await getDocument(
+                                    document.id
+                                );
+
+                            if (
+                                latest.status === "ready" ||
+                                latest.status === "failed"
+                            ) {
+
+                                clearInterval(
+                                    interval
+                                );
+
+                                onUploaded();
+                            }
+
+                        } catch (error) {
+                            console.error(
+                                error
+                            );
+                        }
+                    },
+                    3000
+                );
 
             setFile(null);
 
@@ -96,8 +135,8 @@ export default function UploadDocumentDialog({
 
             setDescription("");
 
-            onUploaded();
         } finally {
+
             setLoading(false);
         }
     }

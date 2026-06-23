@@ -7,6 +7,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 
+import { Loader2 } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 
 import { Document } from "@/types/document";
@@ -90,7 +92,15 @@ export default function DocumentTable({
                                             doc.status
                                         )
                                     }
+                                    className="gap-1"
                                 >
+                                    {(doc.status === "pending" ||
+                                        doc.status === "processing") && (
+                                            <Loader2
+                                                className="h-3 w-3 animate-spin"
+                                            />
+                                        )}
+
                                     {doc.status}
                                 </Badge>
                             </TableCell>

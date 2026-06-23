@@ -1,7 +1,9 @@
 from pathlib import Path
 
 from fastapi import BackgroundTasks, HTTPException, UploadFile
-
+from core.knowledge.ingestion_service import (
+    ingest_document
+)
 from core.knowledge.file_service import FileService
 from storage.sql.sql_store import SQLStore
 
@@ -20,19 +22,7 @@ class KnowledgeService:
         self.sql_store = sql_store
 
     
-    async def ingest_document_placeholder(self, document_id: str):
-        """
-        Placeholder for Day 5 ingestion.
-
-        Day 5 will replace this with:
-        parse -> chunk -> embed
-        """
-
-        print(
-            f"[PLACEHOLDER] "
-            f"Ingestion queued for {document_id}"
-        )
-
+    
 
     async def create_document(
             self,
@@ -100,8 +90,9 @@ class KnowledgeService:
         )
 
         background_tasks.add_task(
-            self.ingest_document_placeholder,
-            document["id"]
+            ingest_document,
+            document["id"],
+            self.sql_store
         )
 
         return document
