@@ -5,7 +5,7 @@ from core.config import settings
 from core.auth.password import hash_password
 
 
-ADMIN_EMAIL = "admin@skb.local"
+ADMIN_EMAIL = "admin@skb.com"
 ADMIN_PASSWORD = "Admin@123"
 ADMIN_NAME = "System Administrator"
 

@@ -305,9 +305,17 @@ class SQLStore:
         """
 
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(
+            command = sql.strip().upper()
+
+            if command.startswith("SELECT"):
+                rows = await conn.fetch(
+                    sql,
+                    *params
+                )
+
+                return [dict(row) for row in rows]
+            
+            return await conn.execute(
                 sql,
                 *params
             )
-
-        return [dict(row) for row in rows]

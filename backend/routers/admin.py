@@ -10,9 +10,23 @@ from core.knowledge.permission_service import (
     PermissionService
 )
 
-from core.knowledge.admin_auth import (
-    verify_admin_token
+from core.auth.dependencies import (
+    require_admin
 )
+
+from core.auth.user_context import (
+    UserContext
+)
+
+from core.auth.user_service import (
+    UserService
+)
+
+from core.auth.schemas import (
+    CreateUserRequest,
+    UpdateUserRequest
+)
+
 from core.knowledge.knowledge_service import (
     KnowledgeService
 )
@@ -35,14 +49,16 @@ router = APIRouter(
     tags=["Admin"]
 )
 
-@router.post("/documents", dependencies=[Depends(verify_admin_token)])
+@router.post("/documents")
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     department_id: str = Form(...),
     visibility: str = Form("department"),
     description: str | None = Form(None),
-    sql_store: SQLStore = Depends(get_sql_store)
+    sql_store: SQLStore = Depends(get_sql_store),current_user: UserContext = Depends(
+        require_admin
+    )
 ):
     
     service = KnowledgeService(sql_store)
@@ -51,7 +67,7 @@ async def upload_document(
         upload_file=file,
         department_id=department_id,
         visibility=visibility,
-        uploaded_by_user_id=None,  # Admin upload, no user ID
+        uploaded_by_user_id=current_user.id,
         background_tasks=background_tasks,
         metadata={
             "description": description
@@ -69,9 +85,12 @@ async def upload_document(
     }
 
 
-@router.get("/documents", dependencies=[Depends(verify_admin_token)])
+@router.get("/documents")
 async def list_documents(
-    sql_store: SQLStore = Depends(get_sql_store)
+    sql_store: SQLStore = Depends(get_sql_store),
+    current_user: UserContext = Depends(
+        require_admin
+    )
 ):
     
     documents = await sql_store.execute_raw(
@@ -90,15 +109,15 @@ async def list_documents(
 
 
 @router.get(
-    "/documents/{document_id}",
-    dependencies=[
-        Depends(verify_admin_token)
-    ]
+    "/documents/{document_id}"
 )
 async def get_document(
     document_id: str,
     sql_store: SQLStore = Depends(
         get_sql_store
+    ),
+    current_user: UserContext = Depends(
+        require_admin
     )
 ):
     result = await sql_store.execute_raw(
@@ -127,14 +146,14 @@ async def get_document(
 
 
 @router.get(
-    "/departments",
-    dependencies=[
-        Depends(verify_admin_token)
-    ]
+    "/departments"
 )
 async def list_departments(
     sql_store: SQLStore = Depends(
         get_sql_store
+    ),
+    current_user: UserContext = Depends(
+        require_admin
     )
 ):
     service = DepartmentService(sql_store)
@@ -143,15 +162,15 @@ async def list_departments(
 
 
 @router.post(
-    "/departments",
-    dependencies=[
-        Depends(verify_admin_token)
-    ]
+    "/departments"
 )
 async def create_department(
     payload: CreateDepartmentRequest,
     sql_store: SQLStore = Depends(
         get_sql_store
+    ),
+    current_user: UserContext = Depends(
+        require_admin
     )
 ):
     service = DepartmentService(
@@ -168,15 +187,15 @@ async def create_department(
 
 
 @router.get(
-    "/departments/{department_id}/documents",
-    dependencies=[
-        Depends(verify_admin_token)
-    ]
+    "/departments/{department_id}/documents"
 )
 async def get_department_documents(
     department_id: str,
     sql_store: SQLStore = Depends(
         get_sql_store
+    ),
+    current_user: UserContext = Depends(
+        require_admin
     )
 ):
     service = DepartmentService(
@@ -202,16 +221,16 @@ async def get_department_documents(
 
 
 @router.put(
-    "/documents/{document_id}",
-    dependencies=[
-        Depends(verify_admin_token)
-    ]
+    "/documents/{document_id}"
 )
 async def update_document(
     document_id: str,
     payload: UpdateDocumentRequest,
     sql_store: SQLStore = Depends(
         get_sql_store
+    ),
+    current_user: UserContext = Depends(
+        require_admin
     )
 ):
     service = DepartmentService(
@@ -229,15 +248,15 @@ async def update_document(
 
 
 @router.delete(
-    "/documents/{document_id}",
-    dependencies=[
-        Depends(verify_admin_token)
-    ]
+    "/documents/{document_id}"
 )
 async def delete_document(
     document_id: str,
     sql_store: SQLStore = Depends(
         get_sql_store
+    ),
+    current_user: UserContext = Depends(
+        require_admin
     )
 ):
     service = DepartmentService(
@@ -255,17 +274,15 @@ async def delete_document(
 
 
 @router.post(
-    "/permissions",
-    dependencies=[
-        Depends(
-            verify_admin_token
-        )
-    ]
+    "/permissions"
 )
 async def create_permission(
     payload: CreatePermissionRequest,
     sql_store: SQLStore = Depends(
         get_sql_store
+    ),
+    current_user: UserContext = Depends(
+        require_admin
     )
 ):
     service = PermissionService(
@@ -280,3 +297,71 @@ async def create_permission(
     )
 
     return permission
+
+
+
+@router.get("/users")
+async def list_users(
+    current_user: UserContext = Depends(
+        require_admin
+    ),
+    sql_store: SQLStore = Depends(
+        get_sql_store
+    )
+):
+
+    service = UserService(
+        sql_store
+    )
+
+    return await service.list_users()
+
+
+
+@router.post("/users")
+async def create_user(
+    payload: CreateUserRequest,
+    current_user: UserContext = Depends(
+        require_admin
+    ),
+    sql_store: SQLStore = Depends(
+        get_sql_store
+    )
+):
+
+    service = UserService(
+        sql_store
+    )
+
+    return await service.create_user(
+        email=payload.email,
+        password=payload.password,
+        full_name=payload.full_name,
+        department_id=payload.department_id,
+        role=payload.role
+    )
+
+
+
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: str,
+    payload: UpdateUserRequest,
+    current_user: UserContext = Depends(
+        require_admin
+    ),
+    sql_store: SQLStore = Depends(
+        get_sql_store
+    )
+):
+
+    service = UserService(
+        sql_store
+    )
+
+    return await service.update_user(
+        user_id=user_id,
+        role=payload.role,
+        department_id=payload.department_id,
+        is_active=payload.is_active
+    )

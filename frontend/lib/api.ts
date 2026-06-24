@@ -1,6 +1,22 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL;
 
+function getAuthHeaders(): HeadersInit  {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem(
+          "access_token"
+        )
+      : null;
+
+  return token
+    ? {
+        Authorization:
+          `Bearer ${token}`,
+      }
+    : {};
+}
+
 export async function apiGet(
   endpoint: string
 ) {
@@ -8,8 +24,7 @@ export async function apiGet(
     `${API_BASE_URL}${endpoint}`,
     {
       headers: {
-        "X-Admin-Token":
-            "dev-token"
+        ...getAuthHeaders(),
       },
       cache: "no-store",
     }
@@ -35,9 +50,33 @@ export async function apiPost(
       headers: {
         "Content-Type":
           "application/json",
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(body),
+    }
+  );
 
-        "X-Admin-Token": 
-            "dev-token",
+  if (!response.ok) {
+    throw new Error(
+      `API Error: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function apiPut(
+  endpoint: string,
+  body: unknown
+) {
+  const response = await fetch(
+    `${API_BASE_URL}${endpoint}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type":
+          "application/json",
+        ...getAuthHeaders(),
       },
       body: JSON.stringify(body),
     }
@@ -60,10 +99,9 @@ export async function apiUpload(
     `${API_BASE_URL}${endpoint}`,
     {
       method: "POST",
-            headers: {
-        "X-Admin-Token":
-            "dev-token",
-        },
+      headers: {
+        ...getAuthHeaders(),
+      },
       body: formData,
     }
   );

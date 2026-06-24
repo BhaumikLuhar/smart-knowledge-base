@@ -9,6 +9,9 @@ import {
   Settings,
 } from "lucide-react";
 
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+
 const navItems = [
   {
     label: "Dashboard",
@@ -38,6 +41,19 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+
+  const { user, logout } = useAuth();
+
+  const router = useRouter();
+
+  async function handleLogout() {
+
+    await logout();
+
+    router.replace(
+      "/login"
+    );
+  }
   return (
     <aside className="w-64 border-r bg-background flex flex-col">
       <div className="p-6 border-b">
@@ -63,14 +79,25 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t p-4">
-        <p className="font-medium">
-          John Doe
-        </p>
+      <div className="border-t p-4 space-y-3">
 
-        <p className="text-sm text-muted-foreground">
-          Engineering
-        </p>
+        <div>
+          <p className="font-medium">
+            {user?.full_name}
+          </p>
+
+          <p className="text-sm text-muted-foreground">
+            {user?.role}
+          </p>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="w-full border rounded-md py-2 text-sm"
+        >
+          Logout
+        </button>
+
       </div>
     </aside>
   );

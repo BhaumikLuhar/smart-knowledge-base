@@ -1,9 +1,13 @@
 import "./globals.css";
-import Sidebar from "@/components/sidebar";
+
+import {
+  AuthProvider,
+} from "@/contexts/AuthContext";
 
 export const metadata = {
   title: "Smart Knowledge Bank",
-  description: "Enterprise Knowledge Intelligence Platform",
+  description:
+    "Enterprise Knowledge Intelligence Platform",
 };
 
 export default function RootLayout({
@@ -14,13 +18,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <div className="flex h-screen">
-          <Sidebar />
-
-          <main className="flex-1 overflow-auto p-8">
-            {children}
-          </main>
-        </div>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

@@ -645,3 +645,300 @@ Week 2 introduces:
 * Session management
 * Secure retrieval
 * User-aware search
+
+
+## Day 8 - Authentication Architecture
+
+### ADR-011: JWT-Based Authentication
+
+**Context**
+
+The Day 3 implementation used a temporary administrative header:
+
+```http
+X-Admin-Token: dev-token
+```
+
+This approach was sufficient during initial development but provided:
+
+* No user identity
+* No role awareness
+* No department awareness
+* No session tracking
+* No scalable authorization model
+
+Week 2 introduces role-based permissions and department-aware retrieval, requiring a proper authentication layer.
+
+### Decision
+
+Implement stateless JWT authentication.
+
+Each authenticated user receives a signed JWT containing:
+
+```json
+{
+    "sub": "user_id",
+    "email": "user@example.com",
+    "role": "employee",
+    "department_id": "department_uuid",
+    "exp": "expiration_timestamp"
+}
+```
+
+JWT configuration:
+
+```python
+JWT_SECRET
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_MINUTES = 480
+```
+
+Authentication flow:
+
+```text
+Login
+    ↓
+Verify password
+    ↓
+Generate JWT
+    ↓
+Return token
+    ↓
+Frontend stores token
+    ↓
+Authorization: Bearer <token>
+```
+
+### Consequences
+
+Benefits:
+
+* Stateless authentication
+* Horizontal scalability
+* Role-aware authorization
+* Department-aware authorization
+* Compatible with future API consumers and agents
+
+Tradeoffs:
+
+* Token revocation requires additional infrastructure
+* Logout cannot immediately invalidate issued tokens
+
+Future enhancement:
+
+* Refresh tokens
+* Token blacklist
+* Token rotation
+
+
+## Day 8 - Authentication Context Strategy
+
+### ADR-012: UserContext Dependency Pattern
+
+**Context**
+
+Most application services require access to the currently authenticated user.
+
+Examples:
+
+* Document uploads
+* Permission evaluation
+* Retrieval filtering
+* Audit logging
+* Future chat sessions
+
+Passing user information manually through endpoints would introduce duplication and increase maintenance complexity.
+
+### Decision
+
+Introduce a centralized authentication dependency:
+
+```python
+get_current_user()
+```
+
+The dependency:
+
+1. Extracts JWT from the Authorization header
+2. Verifies signature and expiration
+3. Loads the user from PostgreSQL
+4. Validates account status
+5. Returns a UserContext object
+
+```python
+UserContext(
+    id,
+    email,
+    role,
+    department_id,
+    is_active
+)
+```
+
+Administrative endpoints use:
+
+```python
+require_admin()
+```
+
+which extends authentication with role validation.
+
+### Consequences
+
+Benefits:
+
+* Centralized authentication logic
+* Consistent authorization enforcement
+* Reduced code duplication
+* Easier future permission integration
+
+Tradeoffs:
+
+* Additional database lookup per authenticated request
+
+This tradeoff is accepted because user status and permissions must remain authoritative in PostgreSQL.
+
+
+## Day 8 - Frontend Authentication Strategy
+
+### ADR-013: localStorage Token Storage for MVP
+
+**Context**
+
+The frontend requires persistent authentication across:
+
+* Page refreshes
+* Browser navigation
+* Dashboard sessions
+
+Two implementation options were evaluated:
+
+1. localStorage
+2. httpOnly cookies
+
+### Decision
+
+Store JWTs in localStorage during MVP development.
+
+Frontend authentication state is managed through:
+
+```text
+AuthContext
+```
+
+Persisted values:
+
+```text
+access_token
+user
+```
+
+Authentication flow:
+
+```text
+Login
+    ↓
+Store token
+    ↓
+Store user profile
+    ↓
+AuthContext hydration
+    ↓
+Protected layouts
+```
+
+### Consequences
+
+Benefits:
+
+* Fast implementation
+* Simple React integration
+* Minimal backend complexity
+* Compatible with existing architecture
+
+Tradeoffs:
+
+* Vulnerable to XSS if frontend is compromised
+* Middleware cannot access authentication state
+* Less secure than httpOnly cookies
+
+Production recommendation:
+
+* httpOnly cookies
+* CSRF protection
+* Refresh token rotation
+* Server-side session validation
+
+The localStorage approach is accepted for MVP delivery speed.
+
+
+
+## Day 8 - Authorization Enforcement Strategy
+
+### ADR-014: Route-Level Role Enforcement
+
+**Context**
+
+Administrative operations require stricter access control than standard employee operations.
+
+Examples:
+
+* User management
+* Department management
+* Permission management
+* Document administration
+
+Authorization must be enforced consistently across all administrative endpoints.
+
+### Decision
+
+Protect all administrative routes using:
+
+```python
+require_admin()
+```
+
+Administrative access rule:
+
+```python
+current_user.role == "admin"
+```
+
+Authorization behavior:
+
+```text
+No Token
+    ↓
+401 Unauthorized
+
+Valid User Token
+    ↓
+403 Forbidden
+
+Valid Admin Token
+    ↓
+Access Granted
+```
+
+The legacy Day 3 authentication header was completely removed.
+
+### Consequences
+
+Benefits:
+
+* Centralized role enforcement
+* Consistent security model
+* Simple authorization logic
+* Easy extension for future roles
+
+Tradeoffs:
+
+* Role hierarchy currently limited to simple comparisons
+
+Future enhancement:
+
+* Fine-grained permission engine
+* Resource-level authorization
+* Department-aware access control
+
+These enhancements are scheduled for Day 9 and subsequent retrieval phases.
