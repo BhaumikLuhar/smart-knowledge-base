@@ -942,3 +942,239 @@ Future enhancement:
 * Department-aware access control
 
 These enhancements are scheduled for Day 9 and subsequent retrieval phases.
+
+
+
+## Day 9 - Permission Policy Architecture
+
+### ADR-015: Policy-Based Authorization Framework
+
+**Context**
+
+The platform must support multiple authorization strategies over time.
+
+Current requirements are department-based:
+
+* HR users access HR documents
+* Engineering users access Engineering documents
+* Public content is accessible across departments
+* Administrators require unrestricted access
+
+Future enterprise deployments may require:
+
+* Attribute-Based Access Control (ABAC)
+* Role-Based Access Control (RBAC)
+* Row-Level Security (RLS)
+* Tenant-specific authorization models
+
+Embedding authorization rules directly into retrieval logic would tightly couple security enforcement to implementation details and make future expansion difficult.
+
+### Decision
+
+Introduce a PermissionPolicy abstraction.
+
+```python
+class PermissionPolicy(ABC):
+
+    async def get_allowed_departments(...)
+
+    async def get_allowed_visibilities(...)
+
+    async def can_access_document(...)
+```
+
+The initial implementation uses:
+
+```python
+DepartmentPermissionPolicy
+```
+
+which evaluates access using:
+
+* User role
+* User department
+* Permission rules stored in PostgreSQL
+* Document visibility metadata
+
+All runtime authorization decisions flow through the policy abstraction.
+
+### Consequences
+
+Benefits:
+
+* Separation of authorization from retrieval
+* Easy introduction of alternative policy models
+* Improved testability
+* Enterprise-friendly architecture
+
+Tradeoffs:
+
+* Additional abstraction layer
+* Slight increase in implementation complexity
+
+Future enhancement:
+
+* ABAC policies
+* Tenant-aware policies
+* External authorization providers
+
+
+
+## Day 9 - Permission Enforcement Strategy
+
+### ADR-016: Two-Layer Authorization Enforcement
+
+**Context**
+
+Unauthorized content must never reach the language model.
+
+Vector databases perform metadata filtering during retrieval, but relying solely on vector-store filtering creates a single point of failure.
+
+Potential risks include:
+
+* Incorrect metadata
+* Query construction bugs
+* Retrieval implementation changes
+* Future vector database migrations
+
+A defense-in-depth strategy is required.
+
+### Decision
+
+Enforce permissions at two independent layers.
+
+Layer 1:
+
+```text
+Vector Database Filtering
+```
+
+Authorization filters are generated before retrieval:
+
+```python
+{
+    "$and": [
+        {
+            "department_id": {
+                "$in": allowed_departments
+            }
+        },
+        {
+            "visibility": {
+                "$in": allowed_visibilities
+            }
+        }
+    ]
+}
+```
+
+The filter is passed directly into:
+
+```python
+VectorStore.query(where=...)
+```
+
+Layer 2:
+
+```text
+Application-Level Validation
+```
+
+Every retrieved chunk is re-evaluated using:
+
+```python
+PermissionPolicy.can_access_document()
+```
+
+Any chunk failing the secondary validation is discarded and logged as a security event.
+
+### Consequences
+
+Benefits:
+
+* Defense-in-depth security
+* Protection against retrieval edge cases
+* Consistent authorization enforcement
+* Safer future retrieval evolution
+
+Tradeoffs:
+
+* Small additional processing cost
+* Duplicate validation logic
+
+This tradeoff is accepted because authorization correctness is more important than retrieval performance.
+
+
+
+## Day 9 - Runtime Policy Registry
+
+### ADR-017: Pluggable Permission Registry
+
+**Context**
+
+Authorization strategies may change across deployments.
+
+Examples:
+
+* Department-based access
+* Attribute-based access
+* Customer-specific access models
+* Regulatory compliance policies
+
+Hard-coding policy implementations would require application changes whenever authorization requirements evolve.
+
+### Decision
+
+Introduce a runtime policy registry.
+
+```python
+register_permission_policy(
+    name,
+    policy_class
+)
+```
+
+```python
+get_policy(
+    sql_store,
+    name="department"
+)
+```
+
+Default policy:
+
+```python
+DepartmentPermissionPolicy
+```
+
+The registry allows policy selection without changing retrieval or authorization services.
+
+Example future registrations:
+
+```python
+register_permission_policy(
+    "abac",
+    ABACPolicy
+)
+
+register_permission_policy(
+    "row_level",
+    RLSPolicy
+)
+```
+
+### Consequences
+
+Benefits:
+
+* Extensible authorization architecture
+* Reduced coupling
+* Easier experimentation
+* Future enterprise flexibility
+
+Tradeoffs:
+
+* Additional indirection layer
+* More objects participating in authorization flow
+
+The flexibility gained outweighs the additional complexity.
