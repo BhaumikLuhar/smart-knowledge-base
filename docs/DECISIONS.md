@@ -1178,3 +1178,103 @@ Tradeoffs:
 * More objects participating in authorization flow
 
 The flexibility gained outweighs the additional complexity.
+
+
+
+## Day 10 - Hybrid Retrieval Strategy
+
+### ADR-018: Hybrid Retrieval Architecture
+
+### Context
+
+Semantic vector retrieval provides strong conceptual matching but may miss exact keyword matches.
+
+Keyword retrieval using BM25 performs well for exact terms but lacks semantic understanding.
+
+A retrieval strategy is required that balances both approaches.
+
+### Decision
+
+Implement a hybrid retrieval pipeline combining:
+
+```text
+Vector Search
++
+BM25 Search
+```
+
+Results from both retrievers are merged using weighted scoring:
+
+```text
+final_score =
+(VECTOR_WEIGHT * vector_score)
++
+(KEYWORD_WEIGHT * bm25_score)
+```
+
+Current weights:
+
+```text
+VECTOR_WEIGHT = 0.7
+KEYWORD_WEIGHT = 0.3
+```
+
+### Consequences
+
+#### Benefits
+
+- Better retrieval accuracy
+- Improved exact-match handling
+- Strong semantic understanding
+
+#### Tradeoffs
+
+- Additional retrieval computation
+- More complex scoring logic
+
+---
+
+## Day 10 - Runtime Retriever Registry
+
+### ADR-019: Pluggable Retrieval Framework
+
+### Context
+
+The system currently supports:
+
+- `VectorRetriever`
+- `BM25Retriever`
+- `HybridRetriever`
+
+Future retrieval approaches may include graph retrieval, metadata retrieval, or external search providers.
+
+Hard-coding retrieval implementations would increase coupling.
+
+### Decision
+
+Introduce a retriever registry:
+
+```python
+register_retriever(...)
+get_retriever(...)
+```
+
+Default retriever:
+
+```python
+HybridRetriever
+```
+
+Retrieval implementations can be replaced without changing downstream application logic.
+
+### Consequences
+
+#### Benefits
+
+- Extensible retrieval architecture
+- Easier experimentation
+- Reduced coupling
+
+#### Tradeoffs
+
+- Additional abstraction layer

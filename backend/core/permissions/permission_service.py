@@ -12,6 +12,24 @@ class PermissionService:
         self.policy = get_policy(sql_store, policy_name)
 
 
+    async def get_allowed_departments(
+        self,
+        user_context: UserContext
+    ) -> list[str]:
+        return await self.policy.get_allowed_departments(
+            user_context
+        )
+
+
+    async def get_allowed_visibilities(
+        self,
+        user_context: UserContext
+    ) -> list[str]:
+        return await self.policy.get_allowed_visibilities(
+            user_context
+        )
+
+
     async def get_user_context_filters(self,user_context: UserContext)-> dict:
         """
         Build Chroma metadata filter.
