@@ -12,6 +12,7 @@ from core.config import settings
 from core.database import create_db_pool, close_db_pool
 
 from core.retrieval.embedder import Embedder
+from core.retrieval.cross_encoder_reranker import CrossEncoderReranker
 from storage.vector.vector_store import VectorStore
 
 @asynccontextmanager
@@ -35,6 +36,14 @@ async def lifespan(app: FastAPI):
     #
     VectorStore.get_instance()
     print("✅ Chroma initialized")
+
+    #
+    # Day 12
+    # Preload CrossEncoder reranker
+    #
+    if settings.RERANKER_TYPE == "cross_encoder":
+        CrossEncoderReranker.get_instance()
+        print("✅ CrossEncoder reranker initialized")
 
     yield
 

@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     VECTOR_WEIGHT: float = 0.7
     KEYWORD_WEIGHT: float = 0.3
 
+    # Reranker
+    RERANKER_TYPE: str = "cross_encoder"
+    CROSS_ENCODER_MODEL: str = (
+        "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    )
+
     # Limits
     MAX_FILE_SIZE_MB: int = 50
     MAX_PAGES_PER_DOC: int = 150

@@ -1280,9 +1280,9 @@ Retrieval implementations can be replaced without changing downstream applicatio
 - Additional abstraction layer
 
 
-## Day 11 
+## Day 11 - Retrieval Pipeline Orchestration
 
-### ADR-016: Centralized Retrieval Pipeline
+### ADR-020: Centralized Retrieval Pipeline
 
 ### Status
 
@@ -1290,43 +1290,64 @@ Accepted
 
 ### Context
 
-Retrieval previously consisted only of candidate generation through the Hybrid Retriever.
+Hybrid retrieval produces candidate chunks using vector search and BM25 retrieval.
 
-As additional stages such as permission filtering, reranking, audit logging, and future context processing were introduced, a single orchestration layer became necessary to coordinate the complete retrieval workflow.
+As the retrieval process expands to include permission validation, reranking, audit logging, and future LLM integration, coordinating these stages directly inside API endpoints would increase coupling and duplicate logic.
+
+A centralized orchestration layer is required to execute the complete retrieval workflow.
 
 ### Decision
 
-Introduce a dedicated `RetrievalPipeline` service responsible for executing the complete retrieval process.
+Introduce a dedicated `RetrievalPipeline` service responsible for the complete retrieval process.
 
-The pipeline performs the following stages:
+```text
+User Query
+      │
+      ▼
+Hybrid Retrieval
+      │
+      ▼
+Permission Filter
+      │
+      ▼
+Reranker (Day 12)
+      │
+      ▼
+Final Top-K
+      │
+      ▼
+Audit Logging
+```
 
-1. Candidate retrieval
-2. Permission filtering
-3. Reranking (placeholder for Day 12)
-4. Final top-K selection
-5. Audit logging
+The retrieval pipeline performs:
 
-All future chat endpoints and AI agents will access organizational knowledge exclusively through this pipeline.
+- Candidate retrieval
+- Secondary permission validation
+- Reranking (placeholder for Day 12)
+- Final Top-K selection
+- Audit logging
+
+All future chat endpoints and AI agents access organizational knowledge exclusively through this pipeline.
 
 ### Consequences
 
-**Advantages**
+#### Benefits
 
 - Single entry point for knowledge retrieval
-- Clear separation between retrieval algorithms and orchestration
-- Simplifies future integration of reranking and LLM generation
-- Provides a consistent retrieval workflow across the platform
+- Clear separation between orchestration and retrieval algorithms
+- Simplifies future reranker integration
+- Consistent retrieval workflow across the platform
 
-**Trade-offs**
+#### Tradeoffs
 
-- Introduces an additional service layer
-- Adds minimal orchestration overhead
+- Additional orchestration layer
+- Slight increase in service complexity
 
+---
 
+## Day 11 - Defense-in-Depth Retrieval Security
 
-## Day 11
-
-## ADR-017: Defense-in-Depth Retrieval Authorization
+### ADR-021: Secondary Permission Validation
 
 ### Status
 
@@ -1334,31 +1355,154 @@ Accepted
 
 ### Context
 
-Candidate retrieval already applies department-aware filtering at the storage layer through:
+Candidate retrieval already applies department-aware filtering through:
 
 - Chroma metadata filtering
 - PostgreSQL department filtering
 
-Although these filters should prevent unauthorized data from being retrieved, relying solely on storage-level filtering increases the impact of implementation mistakes or future retrieval changes.
+Although storage-level filtering prevents unauthorized retrieval under normal operation, relying solely on infrastructure-level filtering increases the impact of implementation mistakes or future retrieval changes.
+
+A second authorization layer is required before retrieved chunks are returned to the application.
 
 ### Decision
 
-Apply a secondary permission validation within the Retrieval Pipeline using `PermissionService.filter_chunks()`.
+Introduce a secondary permission validation stage within the `RetrievalPipeline`.
 
-This authorization check validates every candidate chunk before it can be returned to the application.
+```text
+Hybrid Retrieval
+        │
+Storage-Level Filtering
+        │
+PermissionService.filter_chunks()
+        │
+Authorized Chunks
+```
 
-All retrieval requests are additionally recorded in the audit log for compliance and traceability.
+Every candidate chunk is validated against the current user's permissions before it becomes eligible for reranking or response generation.
+
+Every retrieval request is additionally recorded in the audit log to provide a complete compliance trail.
 
 ### Consequences
 
-**Advantages**
+#### Benefits
 
+- Defense-in-depth security model
 - Prevents accidental data exposure
-- Independent verification of storage-layer filtering
-- Supports future retrieval strategies without changing the security model
-- Provides a complete audit trail for every query
+- Independent validation of storage-layer filtering
+- Complete audit trail for all retrieval operations
 
-**Trade-offs**
+#### Tradeoffs
 
-- Small amount of additional processing
-- Most queries will not remove additional chunks because storage filtering already enforces permissions
+- Small additional processing overhead
+- Most retrieval requests will not remove additional chunks because storage filtering already enforces permissions
+
+
+## Day 12 - Cross-Encoder Reranking
+
+### ADR-022: Cross-Encoder Reranking Pipeline
+
+### Status
+Accepted
+
+### Context
+
+Hybrid retrieval produces relevant candidate chunks using vector search and BM25 scoring.
+
+Although effective, hybrid scores cannot jointly evaluate the relationship between the complete user query and the complete document chunk.
+
+A secondary ranking stage is required to improve the relevance of the final context returned to the LLM.
+
+### Decision
+
+Introduce a reranking stage after permission filtering.
+
+```text
+Hybrid Retrieval
+        │
+Permission Filter
+        │
+Cross-Encoder Reranker
+        │
+Final Top-K
+```
+
+The default reranker uses:
+
+```text
+cross-encoder/ms-marco-MiniLM-L-6-v2
+```
+
+The reranker:
+
+- Receives authorized candidate chunks
+- Computes query-document relevance scores
+- Updates the ranking score
+- Returns candidates sorted by descending relevance
+
+### Consequences
+
+#### Benefits
+
+- Improved retrieval precision
+- Better final context selection
+- Higher quality input for LLM generation
+
+#### Tradeoffs
+
+- Additional inference latency
+- Extra memory usage for the CrossEncoder model
+
+---
+
+## Day 12 - Pluggable Reranker Framework
+
+### ADR-023: Runtime Reranker Registry
+
+### Status
+Accepted
+
+### Context
+
+The system currently supports:
+
+- `CrossEncoderReranker`
+- `ScoreReranker`
+
+Future deployments may use different reranking models depending on performance, hardware, or deployment requirements.
+
+Hard-coding reranker selection would increase coupling between the retrieval pipeline and reranker implementations.
+
+### Decision
+
+Introduce a runtime reranker registry:
+
+```python
+register_reranker(...)
+get_reranker(...)
+```
+
+The active reranker is selected using the configuration:
+
+```text
+RERANKER_TYPE
+```
+
+Supported implementations:
+
+- `cross_encoder`
+- `score`
+
+The retrieval pipeline depends only on the reranker interface, allowing implementations to be replaced without modifying pipeline logic.
+
+### Consequences
+
+#### Benefits
+
+- Extensible reranking architecture
+- Configurable deployment options
+- Reduced coupling between retrieval and reranking
+
+#### Tradeoffs
+
+- Additional abstraction layer
+- Registry maintenance for new reranker implementations

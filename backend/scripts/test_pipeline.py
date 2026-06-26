@@ -1,8 +1,10 @@
 import asyncio
+import time
 
 from core.database import create_db_pool
 from core.auth.user_context import UserContext
 from core.retrieval.retrieval_pipeline import RetrievalPipeline
+from core.config import settings
 
 from storage.sql.sql_store import SQLStore
 
@@ -152,6 +154,21 @@ async def main():
         pipeline = RetrievalPipeline(
             sql_store
         )
+        print("=" * 80)
+        print("DAY 12 RERANKER BENCHMARK")
+        print("=" * 80)
+
+        print(
+            f"Reranker : {settings.RERANKER_TYPE}"
+        )
+
+        if settings.RERANKER_TYPE == "cross_encoder":
+            print(
+                f"Model    : "
+                f"{settings.CROSS_ENCODER_MODEL}"
+            )
+
+        print("=" * 80)
 
         engineering_user = await get_user(
             sql_store,
@@ -167,9 +184,25 @@ async def main():
         # Scenario 1
         #
 
+        start = time.perf_counter()
+
         hr_leave = await pipeline.retrieve_and_filter(
             "leave policy",
             hr_user
+        )
+
+        elapsed_ms = (
+            time.perf_counter() - start
+        ) * 1000
+
+        print(
+            f"\nRetrieval latency: "
+            f"{elapsed_ms:.2f} ms"
+        )
+
+        assert (
+            len(hr_leave["chunks"])
+            <= hr_leave["authorized_count"]
         )
 
         await print_result(
@@ -188,10 +221,25 @@ async def main():
         #
         # Scenario 2
         #
+        start = time.perf_counter()
 
         engineering_leave = await pipeline.retrieve_and_filter(
             "leave policy",
             engineering_user
+        )
+    
+        elapsed_ms = (
+            time.perf_counter() - start
+        ) * 1000
+
+        print(
+            f"\nRetrieval latency: "
+            f"{elapsed_ms:.2f} ms"
+        )
+
+        assert (
+            len(hr_leave["chunks"])
+            <= hr_leave["authorized_count"]
         )
 
         await print_result(
@@ -205,10 +253,25 @@ async def main():
         #
         # Scenario 3
         #
+        start = time.perf_counter()
 
         engineering_deployment = await pipeline.retrieve_and_filter(
             "deployment process",
             engineering_user
+        )
+    
+        elapsed_ms = (
+            time.perf_counter() - start
+        ) * 1000
+
+        print(
+            f"\nRetrieval latency: "
+            f"{elapsed_ms:.2f} ms"
+        )
+
+        assert (
+            len(hr_leave["chunks"])
+            <= hr_leave["authorized_count"]
         )
 
         await print_result(
@@ -227,10 +290,25 @@ async def main():
         #
         # Scenario 4
         #
+        start = time.perf_counter()
 
         hr_deployment = await pipeline.retrieve_and_filter(
             "deployment process",
             hr_user
+        )
+
+        elapsed_ms = (
+            time.perf_counter() - start
+        ) * 1000
+
+        print(
+            f"\nRetrieval latency: "
+            f"{elapsed_ms:.2f} ms"
+        )
+
+        assert (
+            len(hr_leave["chunks"])
+            <= hr_leave["authorized_count"]
         )
 
         await print_result(

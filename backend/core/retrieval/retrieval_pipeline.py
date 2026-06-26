@@ -5,6 +5,7 @@ from core.config import settings
 
 from core.permissions.permission_service import PermissionService
 from core.retrieval.registry import get_retriever
+from core.retrieval.reranker_registry import get_reranker
 
 
 class RetrievalPipeline:
@@ -39,6 +40,7 @@ class RetrievalPipeline:
         self.sql_store = sql_store
         self.permission_service = PermissionService(sql_store)
         self.retriever = get_retriever(sql_store)
+        self.reranker = get_reranker()
 
 
     async def retrieve_and_filter(
@@ -127,11 +129,26 @@ class RetrievalPipeline:
         
         #
         # Stage 3
-        # Placeholder for Day 12 reranker
+        # Rerank authorized chunks
         #
+        print("\n--- BEFORE RERANK ---")
+        for chunk in authorized[:5]:
+            print(
+                round(chunk["score"], 4),
+                chunk["document_name"]
+            )
 
-        reranked = authorized
+        reranked = self.reranker.rerank(
+            query=query,
+            candidates=authorized
+        )
 
+        print("\n--- AFTER RERANK ---")
+        for chunk in reranked[:5]:
+            print(
+                round(chunk["score"], 4),
+                chunk["document_name"]
+            )
         #
         # Stage 4
         # Final Top-K
