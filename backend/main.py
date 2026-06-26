@@ -6,6 +6,7 @@ from routers.admin import router as admin_router
 from routers.auth import router as auth_router
 from routers.chat import router as chat_router
 from routers.documents import router as documents_router
+from routers.user import router as user_router
 
 from core.config import settings
 from core.database import create_db_pool, close_db_pool
@@ -69,3 +70,4 @@ app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(documents_router)
+app.include_router(user_router)

@@ -522,3 +522,31 @@ Week 2 will introduce:
 * Access control enforcement
 * User session management
 * Protected chat retrieval
+
+
+
+
+## Retrieval Pipeline
+
+The Retrieval Pipeline provides a centralized orchestration layer for knowledge retrieval.
+
+```text
+User Query
+      │
+      ▼
+Hybrid Retriever
+      │
+      ▼
+Permission Filter
+      │
+      ▼
+Reranker (Day 12)
+      │
+      ▼
+Top-K Selection
+      │
+      ▼
+Audit Logging
+      │
+      ▼
+Retrieved Context

@@ -1278,3 +1278,87 @@ Retrieval implementations can be replaced without changing downstream applicatio
 #### Tradeoffs
 
 - Additional abstraction layer
+
+
+## Day 11 
+
+### ADR-016: Centralized Retrieval Pipeline
+
+### Status
+
+Accepted
+
+### Context
+
+Retrieval previously consisted only of candidate generation through the Hybrid Retriever.
+
+As additional stages such as permission filtering, reranking, audit logging, and future context processing were introduced, a single orchestration layer became necessary to coordinate the complete retrieval workflow.
+
+### Decision
+
+Introduce a dedicated `RetrievalPipeline` service responsible for executing the complete retrieval process.
+
+The pipeline performs the following stages:
+
+1. Candidate retrieval
+2. Permission filtering
+3. Reranking (placeholder for Day 12)
+4. Final top-K selection
+5. Audit logging
+
+All future chat endpoints and AI agents will access organizational knowledge exclusively through this pipeline.
+
+### Consequences
+
+**Advantages**
+
+- Single entry point for knowledge retrieval
+- Clear separation between retrieval algorithms and orchestration
+- Simplifies future integration of reranking and LLM generation
+- Provides a consistent retrieval workflow across the platform
+
+**Trade-offs**
+
+- Introduces an additional service layer
+- Adds minimal orchestration overhead
+
+
+
+## Day 11
+
+## ADR-017: Defense-in-Depth Retrieval Authorization
+
+### Status
+
+Accepted
+
+### Context
+
+Candidate retrieval already applies department-aware filtering at the storage layer through:
+
+- Chroma metadata filtering
+- PostgreSQL department filtering
+
+Although these filters should prevent unauthorized data from being retrieved, relying solely on storage-level filtering increases the impact of implementation mistakes or future retrieval changes.
+
+### Decision
+
+Apply a secondary permission validation within the Retrieval Pipeline using `PermissionService.filter_chunks()`.
+
+This authorization check validates every candidate chunk before it can be returned to the application.
+
+All retrieval requests are additionally recorded in the audit log for compliance and traceability.
+
+### Consequences
+
+**Advantages**
+
+- Prevents accidental data exposure
+- Independent verification of storage-layer filtering
+- Supports future retrieval strategies without changing the security model
+- Provides a complete audit trail for every query
+
+**Trade-offs**
+
+- Small amount of additional processing
+- Most queries will not remove additional chunks because storage filtering already enforces permissions

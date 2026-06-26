@@ -99,7 +99,7 @@ class HybridRetriever(Retriever):
                 settings.KEYWORD_WEIGHT * chunk["bm25_score"]
             )
 
-            chunk["score"] = final_score
+            chunk["score"] = float(final_score)
             chunk.pop("vector_score", None)
             chunk.pop("bm25_score", None)
 

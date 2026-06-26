@@ -70,9 +70,7 @@ async def print_results(
     for result in results[:5]:
 
         print(
-            f"score={result['score']:.4f}"
-            f" | doc={result['document_name']}"
-            f" | page={result['page_number']}"
+            result
         )
 
 
