@@ -1578,3 +1578,120 @@ If the context does not contain enough information to fully answer the question,
 Reference supporting sources using [1], [2], etc.
 
 Be concise, factual, and avoid speculation.
+```
+
+
+---
+
+## Day 14 - Retrieval Relevance Quality Gate
+
+### ADR-025: Rerank-Based Quality Gate
+
+### Status
+
+Accepted
+
+### Context
+
+During Week 2 security validation, several queries without relevant supporting documents still returned grounded responses.
+
+Although authorization correctly prevented access to restricted content, unrelated authorized chunks could still be passed to the language model because retrieval always returned the highest-scoring available chunks.
+
+Examples:
+
+- "What is finance policy?" for an Engineering employee
+- "What are salary adjustment guidelines?" when no relevant document existed
+
+These responses were factually grounded in retrieved documents but were semantically unrelated to the user's question.
+
+### Decision
+
+Introduce a retrieval quality gate after reranking and before generation.
+
+```text
+Hybrid Retrieval
+        │
+        ▼
+Permission Filter
+        │
+        ▼
+Cross-Encoder Reranker
+        │
+        ▼
+Quality Gate
+        │
+        ▼
+Final Top-K
+        │
+        ▼
+Generation
+```
+
+The gate evaluates the highest reranker score.
+
+If the top reranker score is below the configured threshold, no chunks are forwarded to the language model.
+
+Instead, the generator returns the standard authorization fallback response.
+
+**Current configuration:**
+
+```text
+MIN_RERANK_SCORE = 0.0
+```
+
+### Consequences
+
+#### Benefits
+
+- Reduces false-positive retrieval
+- Prevents irrelevant grounded responses
+- Improves response precision
+- Maintains existing security guarantees
+
+#### Tradeoffs
+
+- Some borderline queries may now return the fallback response instead of a low-confidence answer.
+
+---
+
+## Day 14 - Week 2 Security Validation
+
+### ADR-026: Defense-in-Depth Retrieval Security Validation
+
+### Status
+
+Accepted
+
+### Context
+
+Week 2 introduced authentication, permission-aware retrieval, cross-department access control, reranking, and grounded generation.
+
+Before beginning the agent architecture, the complete security model required validation.
+
+### Decision
+
+A comprehensive security validation suite was executed covering:
+
+- Department isolation
+- Public document access
+- Cross-department permission rules
+- Restricted document visibility
+- JWT signature validation
+- Retrieval audit logging
+
+The validation confirmed that:
+
+- Unauthorized chunks never reach the language model.
+- Restricted documents are excluded during retrieval using metadata filtering.
+- Application-level permission validation remains in place as a secondary authorization layer.
+- Invalid JWT signatures are rejected before authorization.
+- Every retrieval request produces a complete audit trail.
+
+### Consequences
+
+#### Benefits
+
+- Verified defense-in-depth security architecture
+- Confirmed permission correctness before introducing AI agents
+- Improved auditability
+- Increased confidence in retrieval correctness

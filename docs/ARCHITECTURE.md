@@ -311,10 +311,16 @@ Represent this sentence for searching relevant passages:
 Current retrieval process:
 
 1. User query received
-2. Query embedded
-3. Chroma vector search executed
-4. Department metadata filter applied
-5. Top matching chunks returned
+2. Hybrid retrieval (Vector + BM25)
+3. Metadata filtering
+   - department
+   - visibility
+4. Secondary permission validation
+5. Cross-Encoder reranking
+6. Retrieval quality gate
+7. Final Top-K
+8. Audit logging
+9. Context returned to the Generator
 
 Current metadata filters:
 
@@ -324,7 +330,14 @@ Current metadata filters:
 }
 ```
 
-Future permission enforcement will expand these filters.
+Current metadata filtering enforces both:
+
+- Department permissions
+- Document visibility
+
+before retrieval.
+
+Application-level permission validation provides a second authorization layer before reranking.
 
 ---
 
@@ -492,28 +505,49 @@ core/retrieval → asyncpg
 core/retrieval → chromadb
 ```
 
+## Retrieval Security Model
+
+Authorization is enforced using two independent layers.
+
+Layer 1
+
+Storage-level filtering:
+
+- Chroma metadata filters
+- PostgreSQL visibility filters
+
+Only accessible chunks are eligible for retrieval.
+
+Layer 2
+
+Application-level validation:
+
+PermissionService validates every retrieved chunk before reranking.
+
+This defense-in-depth architecture ensures unauthorized content never reaches the language model even if retrieval implementations change.
+
 All persistence operations must pass through storage abstractions.
 
 ---
 
-# Current Week 1 Capabilities
+# Current Week 2 Capabilities
 
 Implemented:
 
-* Department management
-* Document upload
-* Metadata storage
-* Background ingestion
-* Loader registry
-* Chunk generation
-* PostgreSQL chunk storage
-* Embedding generation
-* Chroma persistence
-* Semantic search
-* Department-level filtering
-* Administrative knowledge base UI
-* Status polling
-* Audit logging
+* JWT authentication
+* User sessions
+* Department-aware retrieval
+* Visibility-aware retrieval
+* Role-based permissions
+* Policy-based authorization
+* Hybrid retrieval
+* Cross-Encoder reranking
+* Retrieval quality gate
+* Grounded response generation
+* Citation generation
+* Conversation persistence
+* Metrics collection
+* Comprehensive audit logging
 
 Week 2 will introduce:
 
@@ -537,19 +571,26 @@ User Query
 Hybrid Retriever
       │
       ▼
-Permission Filter
+Metadata Filtering
+(Department + Visibility)
       │
       ▼
-Reranker (Day 12)
+Secondary Permission Filter
       │
       ▼
-Top-K Selection
+Cross-Encoder Reranker
+      │
+      ▼
+Retrieval Quality Gate
+      │
+      ▼
+Final Top-K
       │
       ▼
 Audit Logging
       │
       ▼
-Retrieved Context
+Generator
 ```
 
 
@@ -557,7 +598,7 @@ Retrieved Context
 
 ## Generation Layer
 
-Day 13 introduces the generation layer responsible for producing grounded responses from authorized retrieval results.
+Week 2 introduces the generation layer responsible for producing grounded, permission-aware responses from authorized retrieval results.
 
 ```text
 Client
@@ -568,51 +609,105 @@ Chat Router
 ▼
 ChatService
 │
-├───────────────┐
-▼               ▼
-SessionService  RetrievalPipeline
-│
-▼
-Generator
-│
-┌───────────────┴───────────────┐
-▼                               ▼
-Citation Builder            LLM Provider
-│
-▼
-Groq Provider
+├──────────────────────────┐
+▼                          ▼
+SessionService        RetrievalPipeline
+                           │
+                           ▼
+                    Hybrid Retrieval
+                           │
+                           ▼
+                 Metadata Filtering
+          (Department + Visibility)
+                           │
+                           ▼
+              Secondary Permission Filter
+                           │
+                           ▼
+                Cross-Encoder Reranker
+                           │
+                           ▼
+                Retrieval Quality Gate
+                           │
+                           ▼
+                      Generator
+                           │
+          ┌────────────────┴────────────────┐
+          ▼                                 ▼
+  Citation Builder                  LLM Provider
+                                            │
+                                            ▼
+                                     Groq Provider
 ```
 
 ### Responsibilities
 
 #### ChatService
 
-Coordinates the complete RAG request lifecycle:
+Coordinates the complete RAG request lifecycle.
 
-- Session management
-- Message persistence
-- Retrieval execution
-- Response generation
-- Metrics recording
+Responsibilities:
+
+* Session management
+* Message persistence
+* Retrieval execution
+* Response generation
+* Metrics recording
+
+---
+
+#### RetrievalPipeline
+
+Executes the complete retrieval workflow.
+
+Responsibilities:
+
+* Hybrid retrieval
+* Metadata filtering
+* Secondary permission validation
+* Cross-encoder reranking
+* Retrieval quality validation
+* Audit logging
+
+The pipeline guarantees that only authorized and sufficiently relevant context reaches the Generator.
+
+---
 
 #### SessionService
 
 Manages conversation sessions and validates ownership.
 
+---
+
 #### Generator
 
-Builds grounded prompts, invokes the LLM provider, computes response confidence, and returns structured responses.
+Transforms authorized retrieval context into grounded natural language responses.
+
+Responsibilities:
+
+* Build prompts
+* Invoke the configured LLM provider
+* Compute response confidence
+* Generate citations
+* Return structured responses
+* Return a fallback response when no authorized or relevant context exists
+
+The Generator never invokes the LLM when retrieval returns no usable context.
+
+---
 
 #### Citation Builder
 
-Aggregates document citations and removes duplicate document references.
+Aggregates citations by document, removes duplicate references, and preserves page and chunk metadata.
+
+---
 
 #### LLM Provider
 
 Defines the provider abstraction.
 
-**Current implementation:**
+Current implementation:
 
-- Groq (OpenAI-compatible API)
+* Groq (OpenAI-compatible API)
 
 Future providers can be added without changing the generation pipeline.
