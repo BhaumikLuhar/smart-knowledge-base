@@ -58,20 +58,48 @@ class PermissionService:
         }
     
 
-    async def filter_chunks(self, user: UserContext, chunks: list[dict]) -> list[dict]:
+    async def filter_chunks(
+        self,
+        user: UserContext,
+        chunks: list[dict]
+    ) -> list[dict]:
         """
         Secondary authorization layer.
 
-        Even if Chroma already filtered,
-        verify every chunk again.
+        Permissions are loaded once per request,
+        then all candidate chunks are validated
+        in memory.
         """
+
+        if not chunks:
+            return []
+
+        #
+        # Load permissions once
+        #
+        allowed_departments = set(
+            await self.policy.get_allowed_departments(user)
+        )
+
+        allowed_visibilities = set(
+            await self.policy.get_allowed_visibilities(user)
+        )
 
         authorized_chunks = []
 
         for chunk in chunks:
-            allowed = await self.policy.can_access_document(user, chunk)
 
-            if allowed:
+            department_allowed = (
+                str(chunk.get("department_id"))
+                in allowed_departments
+            )
+
+            visibility_allowed = (
+                chunk.get("visibility")
+                in allowed_visibilities
+            )
+
+            if department_allowed and visibility_allowed:
                 authorized_chunks.append(chunk)
             else:
                 await self.log_permission_denial(

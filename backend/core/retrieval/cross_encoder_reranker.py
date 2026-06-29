@@ -96,6 +96,10 @@ class CrossEncoderReranker(Reranker):
             #
             updated_chunk = chunk.copy()
 
+            updated_chunk["hybrid_score"] = updated_chunk["score"]
+
+            updated_chunk["rerank_score"] = float(score)
+
             updated_chunk["score"] = float(score)
 
             reranked.append(updated_chunk)

@@ -550,3 +550,69 @@ Audit Logging
       │
       ▼
 Retrieved Context
+```
+
+
+---
+
+## Generation Layer
+
+Day 13 introduces the generation layer responsible for producing grounded responses from authorized retrieval results.
+
+```text
+Client
+│
+▼
+Chat Router
+│
+▼
+ChatService
+│
+├───────────────┐
+▼               ▼
+SessionService  RetrievalPipeline
+│
+▼
+Generator
+│
+┌───────────────┴───────────────┐
+▼                               ▼
+Citation Builder            LLM Provider
+│
+▼
+Groq Provider
+```
+
+### Responsibilities
+
+#### ChatService
+
+Coordinates the complete RAG request lifecycle:
+
+- Session management
+- Message persistence
+- Retrieval execution
+- Response generation
+- Metrics recording
+
+#### SessionService
+
+Manages conversation sessions and validates ownership.
+
+#### Generator
+
+Builds grounded prompts, invokes the LLM provider, computes response confidence, and returns structured responses.
+
+#### Citation Builder
+
+Aggregates document citations and removes duplicate document references.
+
+#### LLM Provider
+
+Defines the provider abstraction.
+
+**Current implementation:**
+
+- Groq (OpenAI-compatible API)
+
+Future providers can be added without changing the generation pipeline.

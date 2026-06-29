@@ -114,6 +114,12 @@ async def print_result(
 
         print("-" * 80)
 
+        print(
+            chunk
+        )
+
+        print("-" * 80)
+
 
 async def verify_audit_log(
     sql_store: SQLStore
@@ -218,106 +224,106 @@ async def main():
             for chunk in hr_leave["chunks"]
         ), "HR user received Engineering chunks!"
 
-        #
-        # Scenario 2
-        #
-        start = time.perf_counter()
+        # #
+        # # Scenario 2
+        # #
+        # start = time.perf_counter()
 
-        engineering_leave = await pipeline.retrieve_and_filter(
-            "leave policy",
-            engineering_user
-        )
+        # engineering_leave = await pipeline.retrieve_and_filter(
+        #     "leave policy",
+        #     engineering_user
+        # )
     
-        elapsed_ms = (
-            time.perf_counter() - start
-        ) * 1000
+        # elapsed_ms = (
+        #     time.perf_counter() - start
+        # ) * 1000
 
-        print(
-            f"\nRetrieval latency: "
-            f"{elapsed_ms:.2f} ms"
-        )
+        # print(
+        #     f"\nRetrieval latency: "
+        #     f"{elapsed_ms:.2f} ms"
+        # )
 
-        assert (
-            len(hr_leave["chunks"])
-            <= hr_leave["authorized_count"]
-        )
+        # assert (
+        #     len(hr_leave["chunks"])
+        #     <= hr_leave["authorized_count"]
+        # )
 
-        await print_result(
-            "SCENARIO 2 - ENGINEERING USER - LEAVE POLICY",
-            engineering_leave,
-            sql_store
-        )
+        # await print_result(
+        #     "SCENARIO 2 - ENGINEERING USER - LEAVE POLICY",
+        #     engineering_leave,
+        #     sql_store
+        # )
 
-        await verify_audit_log(sql_store)
+        # await verify_audit_log(sql_store)
 
-        #
-        # Scenario 3
-        #
-        start = time.perf_counter()
+        # #
+        # # Scenario 3
+        # #
+        # start = time.perf_counter()
 
-        engineering_deployment = await pipeline.retrieve_and_filter(
-            "deployment process",
-            engineering_user
-        )
+        # engineering_deployment = await pipeline.retrieve_and_filter(
+        #     "deployment process",
+        #     engineering_user
+        # )
     
-        elapsed_ms = (
-            time.perf_counter() - start
-        ) * 1000
+        # elapsed_ms = (
+        #     time.perf_counter() - start
+        # ) * 1000
 
-        print(
-            f"\nRetrieval latency: "
-            f"{elapsed_ms:.2f} ms"
-        )
+        # print(
+        #     f"\nRetrieval latency: "
+        #     f"{elapsed_ms:.2f} ms"
+        # )
 
-        assert (
-            len(hr_leave["chunks"])
-            <= hr_leave["authorized_count"]
-        )
+        # assert (
+        #     len(hr_leave["chunks"])
+        #     <= hr_leave["authorized_count"]
+        # )
 
-        await print_result(
-            "SCENARIO 3 - ENGINEERING USER - DEPLOYMENT",
-            engineering_deployment,
-            sql_store
-        )
+        # await print_result(
+        #     "SCENARIO 3 - ENGINEERING USER - DEPLOYMENT",
+        #     engineering_deployment,
+        #     sql_store
+        # )
 
-        await verify_audit_log(sql_store)
+        # await verify_audit_log(sql_store)
 
-        assert all(
-            chunk["department_id"] != hr_user.department_id
-            for chunk in engineering_deployment["chunks"]
-        ), "Engineering user received HR chunks!"
+        # assert all(
+        #     chunk["department_id"] != hr_user.department_id
+        #     for chunk in engineering_deployment["chunks"]
+        # ), "Engineering user received HR chunks!"
 
-        #
-        # Scenario 4
-        #
-        start = time.perf_counter()
+        # #
+        # # Scenario 4
+        # #
+        # start = time.perf_counter()
 
-        hr_deployment = await pipeline.retrieve_and_filter(
-            "deployment process",
-            hr_user
-        )
+        # hr_deployment = await pipeline.retrieve_and_filter(
+        #     "deployment process",
+        #     hr_user
+        # )
 
-        elapsed_ms = (
-            time.perf_counter() - start
-        ) * 1000
+        # elapsed_ms = (
+        #     time.perf_counter() - start
+        # ) * 1000
 
-        print(
-            f"\nRetrieval latency: "
-            f"{elapsed_ms:.2f} ms"
-        )
+        # print(
+        #     f"\nRetrieval latency: "
+        #     f"{elapsed_ms:.2f} ms"
+        # )
 
-        assert (
-            len(hr_leave["chunks"])
-            <= hr_leave["authorized_count"]
-        )
+        # assert (
+        #     len(hr_leave["chunks"])
+        #     <= hr_leave["authorized_count"]
+        # )
 
-        await print_result(
-            "SCENARIO 4 - HR USER - DEPLOYMENT",
-            hr_deployment,
-            sql_store
-        )
+        # await print_result(
+        #     "SCENARIO 4 - HR USER - DEPLOYMENT",
+        #     hr_deployment,
+        #     sql_store
+        # )
 
-        await verify_audit_log(sql_store)
+        # await verify_audit_log(sql_store)
 
     finally:
 

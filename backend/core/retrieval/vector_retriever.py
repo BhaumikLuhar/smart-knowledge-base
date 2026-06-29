@@ -70,7 +70,8 @@ class VectorRetriever(Retriever):
                 "score": similarity_score,
                 "department_id": metadata.get("department_id"),
                 "visibility": metadata.get("visibility"),
-                "page_number": metadata.get("page_number")
+                "page_number": metadata.get("page_number"),
+                "chunk_index": metadata.get("chunk_index"),
             }
 
             chunks.append(chunk)

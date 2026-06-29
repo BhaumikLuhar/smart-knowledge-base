@@ -7,6 +7,10 @@ from core.permissions.permission_service import PermissionService
 from core.retrieval.registry import get_retriever
 from core.retrieval.reranker_registry import get_reranker
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class RetrievalPipeline:
     """
@@ -131,29 +135,35 @@ class RetrievalPipeline:
         # Stage 3
         # Rerank authorized chunks
         #
-        print("\n--- BEFORE RERANK ---")
-        for chunk in authorized[:5]:
-            print(
-                round(chunk["score"], 4),
-                chunk["document_name"]
-            )
-
         reranked = self.reranker.rerank(
             query=query,
             candidates=authorized
         )
 
-        print("\n--- AFTER RERANK ---")
-        for chunk in reranked[:5]:
-            print(
-                round(chunk["score"], 4),
-                chunk["document_name"]
-            )
         #
         # Stage 4
         # Final Top-K
         #
         final = reranked[:settings.FINAL_TOP_K]
+
+        #
+        # Stage 4b
+        # Retrieval quality gate
+        #
+        if (
+            final
+            and final[0].get("hybrid_score", 0.0)
+            < settings.MIN_RETRIEVAL_SCORE
+        ):
+
+            logger.info(
+                "Retrieval quality gate triggered. "
+                "Top hybrid score %.3f below threshold %.3f.",
+                final[0]["hybrid_score"],
+                settings.MIN_RETRIEVAL_SCORE,
+            )
+
+            final = []
 
         #
         # Stage 5

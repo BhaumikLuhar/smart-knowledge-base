@@ -6,11 +6,21 @@ from core.permissions.base_policy import PermissionPolicy
 
 
 class DepartmentPermissionPolicy(PermissionPolicy):
-
+    _public_department_id: str | None = None
     def __init__(self, sql_store: SQLStore):
         self.sql_store = sql_store
 
     async def get_public_department_id(self) -> str:
+
+        """
+        Return the cached public department ID.
+
+        The public department is effectively static,
+        so avoid querying the database repeatedly.
+        """
+
+        if self.__class__._public_department_id is not None:
+            return self.__class__._public_department_id
 
         public_departments = await self.sql_store.query(
             "departments",
@@ -22,7 +32,11 @@ class DepartmentPermissionPolicy(PermissionPolicy):
         if not public_departments:
             raise Exception("Public department not found")
 
-        return str(public_departments[0]["id"])
+        self.__class__._public_department_id = str(
+            public_departments[0]["id"]
+        )
+
+        return self.__class__._public_department_id
     
 
     async def get_allowed_departments(self, user_context: UserContext) -> list[str]:

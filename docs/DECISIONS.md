@@ -1506,3 +1506,75 @@ The retrieval pipeline depends only on the reranker interface, allowing implemen
 
 - Additional abstraction layer
 - Registry maintenance for new reranker implementations
+
+
+## Day 13 - Generator & Grounded Response
+
+### ADR-024: Generation Service Architecture
+
+### Status
+
+Accepted
+
+### Context
+
+Hybrid retrieval and cross-encoder reranking produce a small set of authorized document chunks. A dedicated generation layer is required to transform these chunks into grounded natural language responses while preventing hallucinations and maintaining source traceability.
+
+Generation should remain independent of the underlying LLM provider to allow future migration between providers without affecting the rest of the retrieval pipeline.
+
+### Decision
+
+Introduce a dedicated generation layer consisting of:
+
+- LLM provider abstraction
+- Citation builder
+- Generator service
+- Chat service orchestration
+- Session management
+- Metrics recording
+
+The generation flow is:
+
+User Query
+→ Retrieval Pipeline
+→ Citation Builder
+→ Generator
+→ LLM Provider
+→ Grounded Response
+
+All generation requests interact only with the `LLMProvider` interface. Provider-specific implementations (currently Groq) remain isolated behind the abstraction layer.
+
+The generator never invokes the LLM when no authorized context is available, preventing unsupported responses.
+
+### Consequences
+
+Positive
+
+- Provider-independent architecture
+- Reduced hallucination risk
+- Fully grounded responses
+- Persistent conversation history
+- Built-in observability
+- Future support for streaming and multiple providers
+
+Negative
+
+- Additional orchestration layer
+- Slight increase in implementation complexity
+
+## Frozen Prompt v1
+
+The following system prompt is frozen for Version 1 of the generation pipeline.
+
+```text
+You are a knowledge assistant for an organization.
+
+Answer the user's question using ONLY the provided document context.
+
+Do not use any external knowledge.
+
+If the context does not contain enough information to fully answer the question, clearly state that the available information is insufficient.
+
+Reference supporting sources using [1], [2], etc.
+
+Be concise, factual, and avoid speculation.

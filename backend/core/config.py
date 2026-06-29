@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     FINAL_TOP_K: int = 5
     VECTOR_WEIGHT: float = 0.7
     KEYWORD_WEIGHT: float = 0.3
+    MIN_RETRIEVAL_SCORE: float = 0.60
 
     # Reranker
     RERANKER_TYPE: str = "cross_encoder"

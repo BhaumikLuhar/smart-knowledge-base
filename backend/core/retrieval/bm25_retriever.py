@@ -59,6 +59,7 @@ class BM25Retriever(Retriever):
         sql = """
         SELECT
             c.id,
+            c.chunk_index,
             c.text,
             c.document_id,
             c.department_id,
@@ -136,6 +137,10 @@ class BM25Retriever(Retriever):
                     "page_number":
                         chunk[
                             "page_number"
+                        ],
+                    "chunk_index":
+                        chunk[
+                            "chunk_index"
                         ]
                 }
             )

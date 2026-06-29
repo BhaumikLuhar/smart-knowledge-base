@@ -15,6 +15,8 @@ from core.retrieval.embedder import Embedder
 from core.retrieval.cross_encoder_reranker import CrossEncoderReranker
 from storage.vector.vector_store import VectorStore
 
+from core.generation.llm_provider import GroqProvider
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -44,6 +46,14 @@ async def lifespan(app: FastAPI):
     if settings.RERANKER_TYPE == "cross_encoder":
         CrossEncoderReranker.get_instance()
         print("✅ CrossEncoder reranker initialized")
+
+
+    #
+    # Day 13
+    # Preload LLM provider
+    #
+    GroqProvider.get_instance()
+    print("✅ Groq provider initialized")
 
     yield
 

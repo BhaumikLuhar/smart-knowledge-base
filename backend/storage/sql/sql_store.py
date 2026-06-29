@@ -216,7 +216,7 @@ class SQLStore:
 
         for key, value in data.items():
 
-            if key == "updated_at" and value == "NOW()":
+            if value == "NOW()":
                 columns.append(
                     f"{key} = NOW()"
                 )
