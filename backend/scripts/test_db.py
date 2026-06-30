@@ -5,7 +5,7 @@ from core.config import settings
 
 
 async def test_connection():
-    conn = await asyncpg.connect(settings.DATABASE_URL,ssl="require",statement_cache_size=0,ssl="require")
+    conn = await asyncpg.connect(settings.DATABASE_URL,ssl="require",statement_cache_size=0,)
 
     try:
         version = await conn.fetchval(

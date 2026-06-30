@@ -16,7 +16,11 @@ from core.chat.chat_service import (
 from core.generation.schemas import (
     ChatQueryRequest,
     ChatQueryResponse,
+    PlannerRequest,
+    PlannerResponse,
 )
+
+from agents.planner.planner_service import PlannerService
 
 from storage.sql.dependencies import (
     get_sql_store,
@@ -64,4 +68,36 @@ async def query(
         message=payload.message,
         session_id=payload.session_id,
         current_user=current_user,
+    )
+
+
+@router.post(
+    "/plan",
+    response_model=PlannerResponse,
+)
+async def plan(
+    payload: PlannerRequest,
+    current_user: UserContext = Depends(
+        get_current_user
+    ),
+):
+    """
+    Execute only the Planner agent.
+
+    Useful for debugging and verifying
+    planning decisions independently
+    from retrieval and generation.
+    """
+
+    service = PlannerService()
+
+    state = await service.plan(
+        query=payload.message,
+        user_context=current_user,
+    )
+
+    return PlannerResponse(
+        strategy=state["retrieval_strategy"],
+        queries=state["search_queries"],
+        trace=state["trace"],
     )

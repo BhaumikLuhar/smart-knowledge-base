@@ -92,3 +92,26 @@ class MessageResponse(BaseModel):
     metadata: dict
 
     created_at: datetime
+
+
+class PlannerRequest(BaseModel):
+    """
+    Planner-only request.
+    """
+
+    message: str = Field(
+        min_length=1,
+        max_length=5000,
+    )
+
+
+class PlannerResponse(BaseModel):
+    """
+    Planner-only response.
+    """
+
+    strategy: str
+
+    queries: list[str]
+
+    trace: list[dict]

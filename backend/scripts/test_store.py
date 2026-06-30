@@ -15,7 +15,7 @@ TEST_DEPARTMENT = {
 async def run_test():
 
     pool = await asyncpg.create_pool(
-        settings.DATABASE_URL,ssl="require",statement_cache_size=0,ssl="require"
+        settings.DATABASE_URL,ssl="require",statement_cache_size=0,
     )
 
     store = SQLStore(pool)

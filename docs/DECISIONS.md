@@ -1695,3 +1695,140 @@ The validation confirmed that:
 - Confirmed permission correctness before introducing AI agents
 - Improved auditability
 - Increased confidence in retrieval correctness
+
+
+## Day 15 - Agent orchestration
+### ADR-027: Agent-Based Orchestration Architecture
+
+**Status**
+
+Accepted
+
+## Context
+
+The Week 2 implementation executes the Retrieval-Augmented Generation (RAG) pipeline directly through `ChatService`.
+
+```text
+ChatService
+    │
+    ▼
+RetrievalPipeline
+    │
+    ▼
+Generator
+```
+
+While effective for a single retrieval workflow, this architecture provides no structured mechanism for introducing intermediate reasoning, planning, or future AI capabilities.
+
+Upcoming features require multiple independent processing stages, including:
+
+- Query planning
+- Multi-query retrieval
+- Response generation
+- Session memory
+- Future reviewer and tool agents
+
+Embedding all of these responsibilities into `ChatService` would increase coupling and make future extensions difficult.
+
+## Decision
+
+Introduce an agent orchestration layer using **LangGraph**.
+
+The workflow is modeled as a directed graph where each agent performs exactly one responsibility while operating on a shared workflow state.
+
+```text
+ChatService
+      │
+      ▼
+LangGraph Workflow
+      │
+      ▼
+Planner
+      │
+      ▼
+Research
+      │
+      ▼
+Response
+```
+
+Each node receives an `AgentState`, updates only the fields it owns, and returns the modified state.
+
+The workflow is compiled once during application startup and reused throughout the application's lifetime.
+
+## Consequences
+
+### Positive
+
+- Separates orchestration from business logic.
+- Agents remain independently testable.
+- New agents can be introduced without modifying existing workflow components.
+- Supports future branching workflows and conditional execution.
+- Keeps `ChatService` focused on request orchestration rather than reasoning.
+
+### Negative
+
+- Introduces an additional abstraction layer.
+- Slightly increases project complexity during early development.
+
+---
+
+## Dat 15 - Agent state
+### ADR-028: Shared Agent State Contract
+
+**Status**
+
+Accepted
+
+## Context
+
+Multiple agents participate in the workflow and must exchange information between execution stages.
+
+Passing arbitrary dictionaries between agents creates several risks:
+
+- Inconsistent field names
+- Runtime key errors
+- Difficult debugging
+- Poor maintainability as additional agents are introduced
+
+The workflow therefore requires a single, well-defined state contract.
+
+## Decision
+
+Introduce a shared `AgentState` using `TypedDict`.
+
+The state represents the complete lifecycle of a chat request and contains:
+
+- User query
+- Serialized user context
+- Retrieval strategy
+- Planned search queries
+- Retrieved chunks
+- Generated answer
+- Citations
+- Confidence score
+- Execution trace
+
+Each agent owns only a subset of these fields.
+
+| Agent | Fields Modified |
+|--------|-----------------|
+| Planner | `retrieval_strategy`, `search_queries`, `trace` |
+| Research | `retrieved_chunks`, `trace` |
+| Response | `answer`, `citations`, `confidence`, `trace` |
+
+The workflow state remains serializable to ensure compatibility with LangGraph execution.
+
+## Consequences
+
+### Positive
+
+- Strongly typed workflow contract.
+- Clear ownership of state fields.
+- Simplifies debugging and testing.
+- Enables future visualization of workflow execution.
+- Compatible with future persistence and checkpointing.
+
+### Negative
+
+- State structure must evolve carefully as new workflow features are added.

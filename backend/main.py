@@ -17,6 +17,8 @@ from storage.vector.vector_store import VectorStore
 
 from core.generation.llm_provider import GroqProvider
 
+from agents.workflow import AgentWorkflow
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -54,6 +56,14 @@ async def lifespan(app: FastAPI):
     #
     GroqProvider.get_instance()
     print("✅ Groq provider initialized")
+
+    #
+    # Day 15
+    # Precompile LangGraph workflow
+    #
+    AgentWorkflow.get_instance()
+
+    print("✅ Agent workflow initialized")
 
     yield
 

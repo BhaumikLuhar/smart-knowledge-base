@@ -711,3 +711,27 @@ Current implementation:
 * Groq (OpenAI-compatible API)
 
 Future providers can be added without changing the generation pipeline.
+
+
+
+## Agent Workflow
+
+The Week 3 architecture introduces an agent orchestration layer
+using LangGraph.
+
+Workflow:
+```text
+ChatService
+        │
+        ▼
+Planner Agent
+        │
+        ▼
+Research Agent
+        │
+        ▼
+Response Agent
+```
+
+Each agent operates on a shared AgentState and updates
+only the fields it owns.
