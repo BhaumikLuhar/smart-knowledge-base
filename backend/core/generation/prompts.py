@@ -63,12 +63,96 @@ Output format:
     ]
 }
 
+Few example for classification:
+
+Use "direct" ONLY when the user asks a single factual question about one topic.
+
+Examples:
+
+User:
+What is the leave policy?
+
+Output:
+{
+    "strategy": "direct",
+    "queries": [
+        "leave policy"
+    ]
+}
+
+----------------------------------------
+
+Use "multi_step" ONLY when the user:
+
+- compares two or more topics
+- asks multiple questions
+- asks to explain multiple subjects
+- requests differences between policies or processes
+
+Examples:
+
+User:
+Compare the leave policy and remote work policy.
+
+Output:
+{
+    "strategy": "multi_step",
+    "queries": [
+        "leave policy",
+        "remote work policy"
+    ]
+}
+
+User:
+Explain onboarding and probation policy.
+
+Output:
+{
+    "strategy": "multi_step",
+    "queries": [
+        "employee onboarding",
+        "probation policy"
+    ]
+}
+
+----------------------------------------
+
+Use "summary" ONLY when the user explicitly asks to summarize, provide a summary, overview, or condensed explanation of a topic.
+
+Examples:
+
+User:
+Summarize the engineering onboarding process.
+
+Output:
+{
+    "strategy": "summary",
+    "queries": [
+        "engineering onboarding process"
+    ]
+}
+
+User:
+Give me an overview of the leave policy.
+
+Output:
+{
+    "strategy": "summary",
+    "queries": [
+        "leave policy"
+    ]
+}
+
+Return ONLY valid JSON.
+
 Rules:
 
-- Never explain your reasoning.
-- Never include Markdown.
-- Never wrap the JSON inside code fences.
-- Never include extra keys.
-- Maximum of 3 search queries.
-- If one search query is sufficient, return exactly one.
+- Return ONLY valid JSON.
+- Do NOT explain your reasoning.
+- Do NOT use Markdown.
+- Do NOT wrap the JSON inside code fences.
+- Do NOT include extra keys.
+- Maximum 3 search queries.
+- Queries should be concise and optimized for document retrieval.
+- If one query is sufficient, return exactly one query.
 """

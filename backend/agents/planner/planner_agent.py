@@ -26,6 +26,58 @@ class PlannerAgent(Agent):
 
     VALID_STRATEGIES = {"direct", "multi_step", "summary"}
 
+    @staticmethod
+    def _determine_strategy(
+        query: str,
+        llm_strategy: str,
+    ) -> str:
+        """
+        Apply deterministic overrides for
+        obvious query patterns.
+
+        The LLM still determines the strategy
+        for ambiguous queries, while simple
+        cases are handled deterministically.
+        """
+
+        query = query.lower()
+
+        #
+        # Summary requests
+        #
+        if any(
+            keyword in query
+            for keyword in (
+                "summarize",
+                "summary",
+                "overview",
+                "brief",
+            )
+        ):
+            return "summary"
+
+        #
+        # Multi-step requests
+        #
+        if any(
+            keyword in query
+            for keyword in (
+                "compare",
+                "comparison",
+                "difference",
+                "differences",
+                "versus",
+                "vs",
+                "both",
+            )
+        ):
+            return "multi_step"
+
+        #
+        # Otherwise trust the LLM
+        #
+        return llm_strategy
+
 
     @staticmethod
     def _strip_json_fences(text: str)-> str:
@@ -110,7 +162,15 @@ class PlannerAgent(Agent):
 
             result= json.loads(cleaned)
 
-            strategy= result.get("strategy","direct")
+            llm_strategy = result.get(
+                "strategy",
+                "direct",
+            )
+
+            strategy = self._determine_strategy(
+                state["query"],
+                llm_strategy,
+            )
 
             queries= result.get("queries",[])
 
