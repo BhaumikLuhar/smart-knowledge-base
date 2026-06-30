@@ -1814,7 +1814,7 @@ Each agent owns only a subset of these fields.
 | Agent | Fields Modified |
 |--------|-----------------|
 | Planner | `retrieval_strategy`, `search_queries`, `trace` |
-| Research | `retrieved_chunks`, `trace` |
+| Research | `retrieved_chunks`,`no_results`, `trace` |
 | Response | `answer`, `citations`, `confidence`, `trace` |
 
 The workflow state remains serializable to ensure compatibility with LangGraph execution.
@@ -1832,3 +1832,80 @@ The workflow state remains serializable to ensure compatibility with LangGraph e
 ### Negative
 
 - State structure must evolve carefully as new workflow features are added.
+
+
+## Day 16 - Research Agent
+
+### ADR-029: Multi-Query Research Agent
+
+### Status
+
+**Accepted**
+
+---
+
+## Context
+
+The Planner Agent determines the optimal retrieval strategy and may generate multiple search queries for a single user request.
+
+Executing only the original user query would ignore the planner's reasoning and reduce retrieval coverage.
+
+The workflow therefore requires a dedicated **Research Agent** responsible for executing all planned queries while preserving the platform's existing permission-aware retrieval pipeline.
+
+To maintain security and consistency, the Research Agent must not bypass established retrieval components or perform independent database or vector store operations.
+
+---
+
+## Decision
+
+Introduce a dedicated **Research Agent** responsible for executing the retrieval stage of the agent workflow.
+
+For each planned search query, the Research Agent:
+
+- Executes the existing `RetrievalPipeline`
+- Aggregates retrieved chunks
+- Deduplicates chunks using `chunk_id`
+- Preserves the highest `rerank_score` for duplicate chunks
+- Sorts the final chunk set by reranking score
+- Limits results to `settings.FINAL_TOP_K`
+- Stores the resulting context in `AgentState`
+
+The Research Agent performs no language generation and accesses no storage systems directly.
+
+### Workflow
+
+```text
+Planner
+    │
+    ▼
+Search Queries
+    │
+    ▼
+Research Agent
+    │
+    ▼
+RetrievalPipeline
+    │
+    ▼
+Authorized Chunks
+```
+
+The agent also records execution metadata within the shared workflow trace and sets a `no_results` flag when no authorized retrieval context is available.
+
+---
+
+## Consequences
+
+### Positive
+
+- Separates retrieval from planning and response generation.
+- Reuses the existing permission-aware retrieval pipeline.
+- Supports multi-query retrieval without duplicating results.
+- Preserves defense-in-depth security through centralized permission enforcement.
+- Provides deterministic workflow state for downstream agents.
+- Enables future retrieval strategies without modifying the Response Agent.
+
+### Negative
+
+- Executes multiple retrieval operations for complex queries, increasing retrieval latency.
+- Adds additional aggregation and deduplication logic within the workflow.

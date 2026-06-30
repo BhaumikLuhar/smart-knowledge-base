@@ -52,6 +52,7 @@ class AgentState(TypedDict):
     # Research output
     #
     retrieved_chunks: list[dict]
+    no_results: bool
 
     #
     # Response output

@@ -13,6 +13,8 @@ from core.database import create_db_pool, close_db_pool
 
 from core.retrieval.embedder import Embedder
 from core.retrieval.cross_encoder_reranker import CrossEncoderReranker
+from core.retrieval.retrieval_pipeline import RetrievalPipeline
+from storage.sql.sql_store import SQLStore
 from storage.vector.vector_store import VectorStore
 
 from core.generation.llm_provider import GroqProvider
@@ -61,7 +63,12 @@ async def lifespan(app: FastAPI):
     # Day 15
     # Precompile LangGraph workflow
     #
-    AgentWorkflow.get_instance()
+    sql_store = SQLStore(app.state.db_pool)
+
+    pipeline = RetrievalPipeline(
+        sql_store
+    )
+    AgentWorkflow.get_instance(pipeline=pipeline)
 
     print("✅ Agent workflow initialized")
 

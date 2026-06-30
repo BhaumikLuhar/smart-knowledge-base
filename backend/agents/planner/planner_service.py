@@ -38,6 +38,7 @@ class PlannerService:
             "retrieval_strategy": "",
             "search_queries": [],
             "retrieved_chunks": [],
+            "no_results": False,
             "answer": "",
             "citations": [],
             "confidence": 0.0,

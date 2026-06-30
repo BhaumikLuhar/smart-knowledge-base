@@ -12,6 +12,8 @@ from agents.response.response_agent import ResponseAgent
 
 from core.auth.user_context import UserContext
 
+from core.retrieval.retrieval_pipeline import RetrievalPipeline
+
 
 class AgentWorkflow:
     """
@@ -24,17 +26,24 @@ class AgentWorkflow:
     _instance = None
 
     @classmethod
-    def get_instance(cls):
+    def get_instance(
+        cls,
+        pipeline: RetrievalPipeline,
+    ):
 
         if cls._instance is None:
-            cls._instance = cls()
+            cls._instance = cls(
+                pipeline=pipeline,
+            )
 
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, pipeline: RetrievalPipeline = None):
 
         if hasattr(self, "graph"):
             return
+        
+        self.pipeline = pipeline
 
         workflow = StateGraph(AgentState)
 
@@ -46,9 +55,13 @@ class AgentWorkflow:
             PlannerAgent().execute,
         )
 
+        self.research_agent = ResearchAgent(
+            pipeline=self.pipeline,
+        )
+
         workflow.add_node(
             "research",
-            ResearchAgent().execute,
+            self.research_agent.execute,
         )
 
         workflow.add_node(
@@ -111,6 +124,8 @@ class AgentWorkflow:
             # Research
             #
             "retrieved_chunks": [],
+            
+            "no_results": False,
 
             #
             # Response
@@ -139,6 +154,7 @@ async def run_agent_pipeline(
     query: str,
     user_context: UserContext,
     session_id: str,
+    pipeline: RetrievalPipeline,
 ) -> AgentState:
     """
     Public helper used by ChatService.
@@ -147,7 +163,7 @@ async def run_agent_pipeline(
     about LangGraph internals.
     """
 
-    return await AgentWorkflow.get_instance().run(
+    return await AgentWorkflow.get_instance(pipeline=pipeline).run(
         query=query,
         user_context=user_context,
         session_id=session_id,
