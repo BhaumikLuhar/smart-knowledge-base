@@ -12,6 +12,10 @@ class Citation(BaseModel):
         default_factory=list
     )
 
+    section_references: list[str] = Field(
+        default_factory=list
+    )
+
     chunk_indexes: list[int] = Field(
         default_factory=list
     )
@@ -70,6 +74,8 @@ class ChatQueryResponse(BaseModel):
     fallback: bool
 
     model_used: str | None = None
+
+    trace: list[dict]
 
 
 class SessionResponse(BaseModel):

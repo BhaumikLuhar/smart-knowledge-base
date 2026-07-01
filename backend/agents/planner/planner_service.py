@@ -43,6 +43,7 @@ class PlannerService:
             "citations": [],
             "confidence": 0.0,
             "trace": [],
+            "tokens_used": 0,
         }
 
         return await self.agent.execute(state)

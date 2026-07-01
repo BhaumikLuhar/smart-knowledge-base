@@ -1,5 +1,7 @@
 from typing import TypedDict
 
+from core.generation.schemas import Citation
+
 
 class TraceEntry(TypedDict):
     """
@@ -58,10 +60,11 @@ class AgentState(TypedDict):
     # Response output
     #
     answer: str
-    citations: list[dict]
+    citations: list[Citation]
     confidence: float
 
     #
     #execution trace
     #
     trace: list[TraceEntry]
+    tokens_used: int

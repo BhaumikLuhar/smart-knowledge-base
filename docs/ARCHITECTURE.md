@@ -716,22 +716,50 @@ Future providers can be added without changing the generation pipeline.
 
 ## Agent Workflow
 
-The Week 3 architecture introduces an agent orchestration layer
-using LangGraph.
+## Agent Pipeline (Week 3)
 
-Workflow:
+The chat workflow is orchestrated using LangGraph and follows a three-agent architecture.
+
 ```text
+Client
+   │
+   ▼
+Chat Router
+   │
+   ▼
 ChatService
-        │
-        ▼
+   │
+   ▼
+run_agent_pipeline()
+   │
+   ▼
 Planner Agent
-        │
-        ▼
+   │
+   ▼
 Research Agent
-        │
-        ▼
+   │
+   ▼
 Response Agent
+   │
+   ▼
+Generator
+   │
+   ▼
+Groq LLM
 ```
 
-Each agent operates on a shared AgentState and updates
-only the fields it owns.
+Each agent is responsible for a single stage of reasoning while sharing state through `AgentState`.
+
+- **Planner Agent**
+  - Determines retrieval strategy.
+  - Generates optimized search queries.
+
+- **Research Agent**
+  - Executes permission-aware retrieval.
+  - Aggregates and deduplicates retrieved chunks.
+
+- **Response Agent**
+  - Generates the grounded answer.
+  - Produces structured citations.
+  - Calculates confidence.
+  - Records execution trace.

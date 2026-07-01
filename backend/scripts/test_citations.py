@@ -4,6 +4,7 @@ chunks = [
     {
         "document_name": "Employee Handbook",
         "page_number": 4,
+        "section_reference": "Section 2.1",
         "chunk_index": 2,
         "department_id": "hr",
         "text": "Annual leave policy " * 20,
@@ -11,6 +12,7 @@ chunks = [
     {
         "document_name": "Employee Handbook",
         "page_number": 7,
+        "section_reference": "Section 2.1",
         "chunk_index": 5,
         "department_id": "hr",
         "text": "Another section",
@@ -18,6 +20,7 @@ chunks = [
     {
         "document_name": "Security Policy",
         "page_number": 1,
+        "section_reference": "Section 2.1",
         "chunk_index": 0,
         "department_id": "it",
         "text": "Security rules",

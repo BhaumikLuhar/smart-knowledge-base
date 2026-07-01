@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     VECTOR_WEIGHT: float = 0.7
     KEYWORD_WEIGHT: float = 0.3
     MIN_RETRIEVAL_SCORE: float = 0.60
-    MIN_RERANK_SCORE: float = 0.0
+    MIN_RERANK_SCORE: float = -1.0
 
     # Reranker
     RERANKER_TYPE: str = "cross_encoder"

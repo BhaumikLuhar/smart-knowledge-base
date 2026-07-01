@@ -3,19 +3,26 @@ import time
 from agents.base_agent import Agent
 from agents.state import AgentState
 
+from core.auth.user_context import UserContext
+from core.generation.generator import Generator
+
 
 class ResponseAgent(Agent):
     """
-    Temporary Response Agent.
+    Final agent in the LangGraph workflow.
 
-    Day 15:
-        Stub implementation.
-
-    Day 17:
-        Generates the final grounded answer.
+    Responsibilities
+    ----------------
+    - Handle no-results without calling the LLM.
+    - Delegate grounded answer generation to Generator.
+    - Populate the final AgentState.
+    - Record execution trace.
     """
 
     name = "response"
+
+    def __init__(self):
+        self.generator = Generator()
 
     async def execute(
         self,
@@ -23,6 +30,48 @@ class ResponseAgent(Agent):
     ) -> AgentState:
 
         start = time.perf_counter()
+
+        #
+        # Never call the LLM without retrieval context.
+        #
+        if (
+            state.get("no_results")
+            or not state["retrieved_chunks"]
+        ):
+
+            state["answer"] = Generator.FALLBACK_MESSAGE
+            state["citations"] = []
+            state["confidence"] = 0.0
+            state["tokens_used"] = 0
+
+            latency = (
+                time.perf_counter() - start
+            ) * 1000
+
+            state["trace"].append(
+                {
+                    "agent_name": self.name,
+                    "input_summary": "0 retrieved chunks",
+                    "output_summary": "fallback response",
+                    "latency": round(latency, 2),
+                }
+            )
+
+            return state
+        
+        user_context = UserContext(**state["user_context"])
+
+        response = self.generator.generate_response(
+            query=state["query"],
+            chunks=state["retrieved_chunks"],
+            user_context=user_context,
+        )
+
+        state["answer"] = response.answer
+        state["citations"] = response.citations
+        state["confidence"] = response.confidence
+        state["tokens_used"] = response.tokens_used
+
 
         latency = (
             time.perf_counter() - start
@@ -35,12 +84,11 @@ class ResponseAgent(Agent):
                     f"{len(state['retrieved_chunks'])} chunks"
                 ),
                 "output_summary": (
-                    "stub"
+                    f"answer={len(response.answer)} chars, "
+                    f"citations={len(response.citations)}, "
+                    f"tokens={response.tokens_used}"
                 ),
-                "latency": round(
-                    latency,
-                    2,
-                ),
+                "latency": round(latency, 2),
             }
         )
 

@@ -124,7 +124,7 @@ class AgentWorkflow:
             # Research
             #
             "retrieved_chunks": [],
-            
+
             "no_results": False,
 
             #
@@ -140,6 +140,8 @@ class AgentWorkflow:
             # Trace
             #
             "trace": [],
+
+            "tokens_used": 0,
         }
 
         result = await self.graph.ainvoke(

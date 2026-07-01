@@ -1909,3 +1909,78 @@ The agent also records execution metadata within the shared workflow trace and s
 
 - Executes multiple retrieval operations for complex queries, increasing retrieval latency.
 - Adds additional aggregation and deduplication logic within the workflow.
+
+
+## Day 17 - Full agent pipeline
+
+## ADR-030: Multi-Agent Response Generation
+
+## Status
+
+Accepted
+
+## Context
+
+The original chat pipeline directly invoked the retrieval pipeline followed by the response generator.
+
+As the system evolves toward a multi-agent architecture, response generation should become an explicit workflow stage executed after planning and research.
+
+## Decision
+
+Introduce a dedicated Response Agent responsible for:
+
+- handling retrieval failures
+- invoking the Generator
+- updating the shared AgentState
+- producing citations
+- computing confidence
+- recording execution traces
+
+The Generator remains responsible for all LLM interaction, preserving a single source of truth for prompt construction and response generation.
+
+## Consequences
+
+Advantages
+
+- clear separation of responsibilities
+- reusable Generator
+- simpler workflow orchestration
+- easier future expansion with additional agents
+
+Trade-offs
+
+- one additional orchestration layer
+- AgentState carries final response metadata
+
+
+## Day 17 - Citation engine
+
+## ADR-031: Structured Citation Engine
+
+## Status
+
+Accepted
+
+## Context
+
+Generated answers must reference their original knowledge sources in a structured and consistent manner.
+
+Documents may originate from paginated sources (PDF) or non-paginated sources such as DOCX and TXT.
+
+## Decision
+
+Enhance the Citation Builder to:
+
+- merge citations belonging to the same document
+- preserve page references for PDFs
+- generate section references for non-paginated documents
+- include representative excerpts
+- retain chunk indexes for future debugging and UI features
+
+## Consequences
+
+Benefits
+
+- improved explainability
+- reduced duplicate citations
+- support for heterogeneous document formats

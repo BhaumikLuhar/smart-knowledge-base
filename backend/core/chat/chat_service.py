@@ -2,9 +2,10 @@ import time
 
 from core.auth.user_context import UserContext
 from core.chat.session_service import SessionService
-from core.generation.generator import Generator
+from agents.workflow import run_agent_pipeline
+
 from core.generation.schemas import (
-    ChatQueryResponse, GeneratorResponse
+    ChatQueryResponse,
 )
 
 from core.observability.metrics import (
@@ -16,6 +17,8 @@ from core.retrieval.retrieval_pipeline import (
 )
 
 from storage.sql.sql_store import SQLStore
+
+from core.config import settings
 
 
 class ChatService:
@@ -43,8 +46,6 @@ class ChatService:
             sql_store
         )
 
-        self.generator = Generator()
-
         self.metrics = MetricsRecorder(
             sql_store
         )
@@ -71,8 +72,7 @@ class ChatService:
     async def _save_assistant_message(
         self,
         session_id: str,
-        response: GeneratorResponse,
-        pipeline_result: dict,
+        state: dict,
     ) -> dict:
         """
         Persist assistant response.
@@ -86,46 +86,19 @@ class ChatService:
             {
                 "session_id": session_id,
                 "role": "assistant",
-                "content": response.answer,
+                "content": state.get("answer"),
                 "metadata": {
                     "citations": [
                         citation.model_dump()
-                        for citation in response.citations
+                        for citation in state["citations"]
                     ],
-                    "confidence": response.confidence,
-                    "tokens_used": response.tokens_used,
-                    "model_used": response.model_used,
-                    "fallback": response.fallback,
-                    "retrieved_chunks": pipeline_result["candidate_count"],
-                    "authorized_chunks": pipeline_result["authorized_count"],
-                    "returned_chunks": len(pipeline_result["chunks"]),
+                    "confidence": state["confidence"],
+                    "tokens_used": state["tokens_used"],
+                    "trace": state["trace"],
                 },
             },
         )
-    
 
-    async def _execute_rag(
-        self,
-        message: str,
-        current_user: UserContext,
-    )-> tuple[dict, GeneratorResponse]:
-        """
-        Execute the complete retrieval and
-        generation pipeline.
-        """
-
-        pipeline_result = await self.pipeline.retrieve_and_filter(
-            query=message,
-            user_context=current_user,
-        )
-
-        response = self.generator.generate_response(
-            query=message,
-            chunks=pipeline_result["chunks"],
-            user_context=current_user,
-        )
-
-        return pipeline_result, response
     
 
     async def _record_success(
@@ -133,7 +106,7 @@ class ChatService:
         *,
         user_id: str,
         latency: float,
-        response: GeneratorResponse,
+        tokens_used: int,
         retrieval_count: int,
     ) -> None:
 
@@ -141,7 +114,7 @@ class ChatService:
             endpoint="/api/v1/chat/query",
             user_id=user_id,
             latency=latency,
-            tokens=response.tokens_used,
+            tokens=tokens_used,
             retrieval_count=retrieval_count,
         )
 
@@ -200,9 +173,11 @@ class ChatService:
             #
             # Execute retrieval + generation
             #
-            pipeline_result, response = await self._execute_rag(
-                message=message,
-                current_user=current_user,
+            state = await run_agent_pipeline(
+                query=message,
+                user_context=current_user,
+                session_id=str(session["id"]),
+                pipeline=self.pipeline,
             )
 
             #
@@ -210,8 +185,7 @@ class ChatService:
             #
             await self._save_assistant_message(
                 session_id=str(session["id"]),
-                response=response,
-                pipeline_result=pipeline_result,
+                state=state,
             )
 
             latency = (
@@ -224,20 +198,21 @@ class ChatService:
             await self._record_success(
                 user_id=current_user.id,
                 latency=latency,
-                response=response,
-                retrieval_count=
-                    pipeline_result["authorized_count"]
-                ,
+                tokens_used=state["tokens_used"],
+                retrieval_count=len(
+                    state["retrieved_chunks"]
+                ),
             )
 
             return ChatQueryResponse(
                 session_id=str(session["id"]),
-                answer=response.answer,
-                citations=response.citations,
-                confidence=response.confidence,
-                tokens_used=response.tokens_used,
-                fallback=response.fallback,
-                model_used=response.model_used,
+                answer=state["answer"],
+                citations=state["citations"],
+                confidence=state["confidence"],
+                tokens_used=state["tokens_used"],
+                fallback=state["no_results"],
+                model_used=settings.GROQ_MODEL,
+                trace=state["trace"],
             )
 
         except Exception as exc:
