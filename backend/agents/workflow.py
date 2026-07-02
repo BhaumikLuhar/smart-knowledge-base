@@ -14,6 +14,10 @@ from core.auth.user_context import UserContext
 
 from core.retrieval.retrieval_pipeline import RetrievalPipeline
 
+from core.memory.session_memory import SessionMemory
+
+from core.conversation.query_resolver import QueryResolver
+
 
 class AgentWorkflow:
     """
@@ -44,6 +48,8 @@ class AgentWorkflow:
             return
         
         self.pipeline = pipeline
+        self.memory = SessionMemory(pipeline.sql_store)
+        self.query_resolver = QueryResolver()
 
         workflow = StateGraph(AgentState)
 
@@ -105,11 +111,21 @@ class AgentWorkflow:
         Execute the complete agent pipeline.
         """
 
+        history = await self.memory.get_session_history(
+            session_id=session_id,
+        )
+
+        resolved_query = self.query_resolver.resolve(
+            query=query,
+            history=history,
+        )
+
         initial_state: AgentState = {
             #
             # Request
             #
             "query": query,
+            "resolved_query": resolved_query,
             "session_id": session_id,
             "user_context": vars(user_context),
 
@@ -128,13 +144,23 @@ class AgentWorkflow:
             "no_results": False,
 
             #
+            # Conversation memory
+            #
+            "history": history,
+
+            #
             # Response
             #
             "answer": "",
 
             "citations": [],
 
-            "confidence": 0.0,
+            #
+            # Confidence
+            #
+            "confidence_score": 0.0,
+
+            "confidence_level": "low",
 
             #
             # Trace

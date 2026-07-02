@@ -1984,3 +1984,208 @@ Benefits
 - improved explainability
 - reduced duplicate citations
 - support for heterogeneous document formats
+
+
+
+## Day 18 - Confidence Layer
+
+### ADR-032: Confidence Classification Layer
+
+**Status**
+
+Accepted
+
+## Context
+
+Earlier versions of the generation pipeline returned a single numeric confidence value computed from the average retrieval similarity score.
+
+Although useful, a numeric score alone is difficult for both users and downstream interfaces to interpret.
+
+The system requires a confidence model that is both machine-readable and human-friendly while remaining grounded in retrieval quality.
+
+## Decision
+
+Replace the previous confidence calculation with a confidence classification layer.
+
+The Generator now returns:
+
+- `confidence_score` (0–100)
+- `confidence_level`
+  - `high`
+  - `medium`
+  - `low`
+
+Classification is based on:
+
+- highest retrieval score
+- number of supporting retrieved chunks
+
+The confidence layer remains retrieval-based rather than LLM-based, ensuring that confidence reflects evidence quality instead of model certainty.
+
+## Consequences
+
+### Benefits
+
+- easier interpretation for end users
+- supports confidence badges in the UI
+- confidence remains deterministic
+- better downstream analytics and evaluation
+
+### Trade-offs
+
+- confidence becomes rule-based instead of a continuous similarity metric
+- confidence thresholds require occasional tuning as retrieval evolves
+
+---
+
+## Day 18 - Session Memory
+
+### ADR-033: Session Conversation Memory
+
+**Status**
+
+Accepted
+
+## Context
+
+The original chat pipeline treated every request as an isolated interaction.
+
+This prevented follow-up questions from using previous conversation context, forcing users to restate topics in every request.
+
+A lightweight conversation memory mechanism is required while keeping retrieval and generation responsibilities separate.
+
+## Decision
+
+Introduce a dedicated `SessionMemory` service responsible for:
+
+- retrieving recent conversation history
+- formatting history using the standard OpenAI message format
+- enforcing the maximum session retention policy
+- supporting conversation-aware generation
+
+Session lifecycle management remains the responsibility of `SessionService`.
+
+Conversation history is injected into the workflow before response generation and supplied to the Generator alongside the current user request.
+
+## Consequences
+
+### Benefits
+
+- enables multi-turn conversations
+- preserves clean separation between session lifecycle and memory management
+- reusable for future memory strategies
+- minimal impact on retrieval performance
+
+### Trade-offs
+
+- one additional database query per request
+- longer prompts for follow-up conversations
+
+---
+
+## Day 18 - Conversational Query Resolution
+
+### ADR-034: Query Resolution Layer
+
+**Status**
+
+Accepted
+
+## Context
+
+Session memory enables the language model to understand conversational context during response generation.
+
+However, retrieval quality remains poor for ambiguous follow-up questions because the Planner receives only the latest user message.
+
+Questions such as:
+
+> "How many days is that?"  
+> "Explain it."  
+> "What about HR?"
+
+lack sufficient context for effective retrieval.
+
+## Decision
+
+Introduce a dedicated `QueryResolver` component executed before planning.
+
+The `QueryResolver`:
+
+- detects conversational follow-up questions using lightweight heuristics
+- rewrites ambiguous questions into standalone natural-language queries using recent conversation history
+- leaves standalone questions unchanged
+- validates rewritten queries before allowing them into the retrieval pipeline
+- falls back to the original query whenever rewriting fails
+
+The Planner and Research stages operate on the resolved query, while the Generator continues answering the user's original question.
+
+## Consequences
+
+### Benefits
+
+- significantly improves retrieval quality for follow-up questions
+- preserves modular agent responsibilities
+- avoids increasing Planner prompt complexity
+- minimizes additional LLM calls through conservative heuristics
+- provides a scalable foundation for future conversational retrieval enhancements
+
+### Trade-offs
+
+- introduces an additional preprocessing stage
+- ambiguous follow-up questions incur one extra LLM request
+- rewrite quality depends on conversation history and prompt quality
+
+---
+
+## Day 18 - Agent Workflow Enhancement
+
+### ADR-035: Conversation-Aware Agent Pipeline
+
+**Status**
+
+Accepted
+
+## Context
+
+The original LangGraph workflow executed planning, research, and response generation using only the current user query.
+
+To support conversational interactions, the workflow must incorporate session history and resolved queries without changing the responsibilities of existing agents.
+
+## Decision
+
+Extend the shared `AgentState` with:
+
+- conversation history
+- resolved retrieval query
+- confidence score
+- confidence level
+
+The workflow now performs the following sequence:
+
+1. Session history retrieval
+2. Conversational query resolution
+3. Planning
+4. Research
+5. Response generation
+
+The Generator receives:
+
+- original user query
+- retrieved context
+- conversation history
+
+while retrieval operates exclusively on the resolved query.
+
+## Consequences
+
+### Benefits
+
+- conversation awareness across the entire pipeline
+- improved retrieval accuracy
+- preserved separation of concerns
+- minimal changes to existing agents
+
+### Trade-offs
+
+- slightly richer shared workflow state
+- additional orchestration before planning

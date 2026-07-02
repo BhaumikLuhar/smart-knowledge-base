@@ -1,5 +1,9 @@
 from storage.sql.sql_store import SQLStore
 
+from core.memory.session_memory import SessionMemory
+
+from fastapi import HTTPException
+
 
 class SessionService:
     """
@@ -20,6 +24,7 @@ class SessionService:
 
     def __init__(self, sql_store: SQLStore):
         self.sql_store = sql_store
+        self.memory = SessionMemory(sql_store)
 
     async def create_session(
         self,
@@ -28,6 +33,16 @@ class SessionService:
         """
         Create a new chat session.
         """
+
+        #
+        # Ensure the user stays within the
+        # configured session limit before
+        # creating a new session.
+        #
+        await self.memory.enforce_session_limit(
+            user_id=user_id,
+        )
+
 
         return await self.sql_store.save(
             "sessions",
@@ -76,11 +91,15 @@ class SessionService:
                 user_id=user_id,
             )
 
-            if session is not None:
+            if session is None:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Session does not belong to the current user.",
+                )
 
-                return await self.touch_session(
-                    session["id"]
-                ) 
+            return await self.touch_session(
+                session["id"]
+            ) 
 
         return await self.create_session(user_id)
 

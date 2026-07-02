@@ -41,7 +41,8 @@ class ResponseAgent(Agent):
 
             state["answer"] = Generator.FALLBACK_MESSAGE
             state["citations"] = []
-            state["confidence"] = 0.0
+            state["confidence_score"] = 0.0
+            state["confidence_level"] = "low"
             state["tokens_used"] = 0
 
             latency = (
@@ -65,11 +66,13 @@ class ResponseAgent(Agent):
             query=state["query"],
             chunks=state["retrieved_chunks"],
             user_context=user_context,
+            history=state.get("history", []),
         )
 
         state["answer"] = response.answer
         state["citations"] = response.citations
-        state["confidence"] = response.confidence
+        state["confidence_score"] = response.confidence_score
+        state["confidence_level"] = response.confidence_level
         state["tokens_used"] = response.tokens_used
 
 
@@ -86,6 +89,7 @@ class ResponseAgent(Agent):
                 "output_summary": (
                     f"answer={len(response.answer)} chars, "
                     f"citations={len(response.citations)}, "
+                    f"confidence={response.confidence_level}, "
                     f"tokens={response.tokens_used}"
                 ),
                 "latency": round(latency, 2),

@@ -33,15 +33,18 @@ class PlannerService:
 
         state: AgentState = {
             "query": query,
+            "resolved_query": query,
             "session_id": session_id,
             "user_context": vars(user_context),
             "retrieval_strategy": "",
             "search_queries": [],
             "retrieved_chunks": [],
             "no_results": False,
+            "history": [],
             "answer": "",
             "citations": [],
-            "confidence": 0.0,
+            "confidence_score": 0.0,
+            "confidence_level": "low",
             "trace": [],
             "tokens_used": 0,
         }

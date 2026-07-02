@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Literal
 
 class Citation(BaseModel):
     """
@@ -34,7 +35,9 @@ class GeneratorResponse(BaseModel):
 
     citations: list[Citation]
 
-    confidence: float
+    confidence_score: float
+
+    confidence_level: Literal["low", "medium", "high"]
 
     tokens_used: int
 
@@ -67,7 +70,9 @@ class ChatQueryResponse(BaseModel):
 
     citations: list[Citation]
 
-    confidence: float
+    confidence_score: float
+
+    confidence_level: Literal["low", "medium", "high"]
 
     tokens_used: int
 

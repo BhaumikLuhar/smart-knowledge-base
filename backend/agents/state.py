@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import TypedDict, Literal
 
 from core.generation.schemas import Citation
 
@@ -41,6 +41,12 @@ class AgentState(TypedDict):
     # Incoming request
     #
     query: str
+
+    #
+    # Standalone version used for planning
+    # and retrieval.
+    #
+    resolved_query: str
     session_id: str
     user_context: dict
 
@@ -57,11 +63,25 @@ class AgentState(TypedDict):
     no_results: bool
 
     #
+    # Conversation memory
+    #
+    history: list[dict]
+
+    #
     # Response output
     #
     answer: str
     citations: list[Citation]
-    confidence: float
+    
+    #
+    # Confidence
+    #
+    confidence_score: float
+    confidence_level: Literal[
+        "high",
+        "medium",
+        "low",
+    ]
 
     #
     #execution trace

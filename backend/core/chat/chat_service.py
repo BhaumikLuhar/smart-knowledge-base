@@ -92,7 +92,9 @@ class ChatService:
                         citation.model_dump()
                         for citation in state["citations"]
                     ],
-                    "confidence": state["confidence"],
+                    "resolved_query": state["resolved_query"],
+                    "confidence_score": state["confidence_score"],
+                    "confidence_level": state["confidence_level"],
                     "tokens_used": state["tokens_used"],
                     "trace": state["trace"],
                 },
@@ -161,15 +163,6 @@ class ChatService:
         }
 
         try:
-
-            #
-            # Persist user message
-            #
-            await self._save_user_message(
-                session_id=str(session["id"]),
-                message=message,
-            )
-
             #
             # Execute retrieval + generation
             #
@@ -178,6 +171,14 @@ class ChatService:
                 user_context=current_user,
                 session_id=str(session["id"]),
                 pipeline=self.pipeline,
+            )
+
+            #
+            # Persist user message
+            #
+            await self._save_user_message(
+                session_id=str(session["id"]),
+                message=message,
             )
 
             #
@@ -208,7 +209,8 @@ class ChatService:
                 session_id=str(session["id"]),
                 answer=state["answer"],
                 citations=state["citations"],
-                confidence=state["confidence"],
+                confidence_score=state["confidence_score"],
+                confidence_level=state["confidence_level"],
                 tokens_used=state["tokens_used"],
                 fallback=state["no_results"],
                 model_used=settings.GROQ_MODEL,

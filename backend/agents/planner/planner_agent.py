@@ -114,7 +114,7 @@ class PlannerAgent(Agent):
         """
 
         state["retrieval_strategy"] = "direct"
-        state["search_queries"] = [state["query"]]
+        state["search_queries"] = [state["resolved_query"]]
 
         return state
     
@@ -147,7 +147,7 @@ class PlannerAgent(Agent):
 
         user_message = {
             "role": "user",
-            "content": state["query"],
+            "content": state["resolved_query"],
         }
 
         try:
@@ -168,7 +168,7 @@ class PlannerAgent(Agent):
             )
 
             strategy = self._determine_strategy(
-                state["query"],
+                state["resolved_query"],
                 llm_strategy,
             )
 
@@ -222,7 +222,10 @@ class PlannerAgent(Agent):
         state["trace"].append(
             {
                 "agent_name": self.name,
-                "input_summary": state["query"][:100],
+                "input_summary": (
+                    f"query={state['query'][:40]} | "
+                    f"resolved={state['resolved_query'][:40]}"
+                ),
                 "output_summary": (
                     f"strategy={state['retrieval_strategy']}, "
                     f"queries={state['search_queries']}"

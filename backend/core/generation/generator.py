@@ -27,9 +27,21 @@ class Generator:
         query: str,
         chunks: list[dict],
         user_context: UserContext,
+        history: list[dict] | None = None,
     ) -> GeneratorResponse:
         """
         Generate a grounded response.
+        Parameters
+        ----------
+        query:
+            User question.
+
+        chunks:
+            Authorized retrieved chunks.
+
+        history:
+            Previous conversation history
+            formatted for the LLM.
         """
 
         #
@@ -40,11 +52,14 @@ class Generator:
             return GeneratorResponse(
                 answer=self.FALLBACK_MESSAGE,
                 citations=[],
-                confidence=0,
+                confidence_score=0.0,
+                confidence_level="low",
                 tokens_used=0,
                 fallback=True,
                 model_used=None,
             )
+        
+        history = history or []
 
         #
         # Build context
@@ -77,48 +92,57 @@ class Generator:
             ),
         }
 
-        answer, tokens = get_llm().generate(
-            [
-                system_message,
-                user_message,
-            ]
-        )
-
-        hybrid_scores = [
-            chunk.get("hybrid_score", 0.0)
-            for chunk in chunks[:3]
+        messages = [
+            system_message,
+            *history,
+            user_message,
         ]
 
-        average_similarity = (
-            sum(hybrid_scores)
-            / len(hybrid_scores)
+        answer, tokens = get_llm().generate(
+            messages
         )
 
-        
-        confidence = max(
-            0.0,
-            min(
-                round(average_similarity * 100, 1),
-                100.0,
-            ),
-        )
+        #
+        # Confidence uses retrieval confidence rather
+        # than reranker confidence.
+        #
+        top_score = chunks[0].get("hybrid_score", 0.0)
 
-        print("\n--- CONFIDENCE ---")
+        chunk_count = len(chunks)
 
-        for chunk in chunks:
-            print(
-                "Retrieval:",
-                round(chunk["hybrid_score"], 3),
-                "Rerank:",
-                round(chunk["rerank_score"], 3),
+        if top_score > 0.75 and chunk_count >= 3:
+
+            confidence_level = "high"
+
+            confidence_score = max(
+                80.0,
+                min(round(top_score * 100, 1), 100.0),
             )
 
-        print("Confidence:", confidence)
+        elif top_score >= 0.5:
+
+            confidence_level = "medium"
+
+            confidence_score = max(
+                50.0,
+                min(round(top_score * 100, 1), 79.0),
+            )
+
+        else:
+
+            confidence_level = "low"
+
+            confidence_score = max(
+                0.0,
+                min(round(top_score * 100, 1), 49.0),
+            )
+
 
         return GeneratorResponse(
             answer=answer,
             citations=build_citations(chunks),
-            confidence=confidence,
+            confidence_score=confidence_score,
+            confidence_level=confidence_level,
             tokens_used=tokens,
             fallback=False,
             model_used=settings.GROQ_MODEL,
