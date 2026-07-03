@@ -56,9 +56,13 @@ class AgentWorkflow:
         #
         # Nodes
         #
+        self.planner_agent = PlannerAgent(
+            self.pipeline.sql_store,
+        )
+
         workflow.add_node(
             "planner",
-            PlannerAgent().execute,
+            self.planner_agent.execute,
         )
 
         self.research_agent = ResearchAgent(
@@ -70,9 +74,13 @@ class AgentWorkflow:
             self.research_agent.execute,
         )
 
+        self.response_agent = ResponseAgent(
+            self.pipeline.sql_store,
+        )
+
         workflow.add_node(
             "response",
-            ResponseAgent().execute,
+            self.response_agent.execute,
         )
 
         #
@@ -168,6 +176,8 @@ class AgentWorkflow:
             "trace": [],
 
             "tokens_used": 0,
+
+            "planner_tokens_used": 0,
         }
 
         result = await self.graph.ainvoke(

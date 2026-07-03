@@ -10,6 +10,11 @@ from core.generation.prompts import (
     PLANNER_SYSTEM_PROMPT_V1,
 )
 
+from storage.sql.sql_store import SQLStore
+
+from core.observability.collector import (
+    ObservabilityCollector,
+)
 
 class PlannerAgent(Agent):
     """
@@ -25,6 +30,11 @@ class PlannerAgent(Agent):
     name="planner"
 
     VALID_STRATEGIES = {"direct", "multi_step", "summary"}
+
+    def __init__(self,sql_store: SQLStore):
+        self.metrics = ObservabilityCollector(
+            sql_store
+        )
 
     @staticmethod
     def _determine_strategy(
@@ -151,12 +161,14 @@ class PlannerAgent(Agent):
         }
 
         try:
-            response, _ = get_llm().generate(
+            response, planner_tokens = get_llm().generate(
                 [
                     system_message,
                     user_message,
                 ]
             )
+
+            state["planner_tokens_used"] = planner_tokens
 
             cleaned= self._strip_json_fences(response)
 
@@ -203,16 +215,18 @@ class PlannerAgent(Agent):
 
             state["search_queries"] = queries[:3]
 
-        except Exception:
+        except Exception as e:
 
-            #
-            # Never fail the workflow because
-            # of Planner output.
-            #
-            #
-            # TODO (Day 19):
-            # Record planner failures in metrics.
-            #
+            latency = (
+                time.perf_counter() - start
+            ) * 1000
+
+            await self.metrics.record_agent_failure(
+                user_id=state["user_context"]["id"],
+                agent_name=self.name,
+                latency=latency,
+                error_message=str(e),
+            )
             state = self._fallback(state)
 
         latency = (
@@ -235,6 +249,13 @@ class PlannerAgent(Agent):
                     2,
                 ),
             }
+        )
+
+        await self.metrics.record_agent_success(
+            user_id=state["user_context"]["id"],
+            agent_name=self.name,
+            latency=latency,
+            tokens=planner_tokens,
         )
 
         return state

@@ -4,7 +4,8 @@ from fastapi import (
     Depends,
     File,
     Form,
-    UploadFile
+    UploadFile,
+    Query,
 )
 from core.knowledge.permission_service import (
     PermissionService
@@ -42,7 +43,18 @@ from core.knowledge.schemas import (
     CreateDepartmentRequest, UpdateDocumentRequest, CreatePermissionRequest
 )
 
+from core.admin.audit_service import (
+    AuditService
+)
+
+from core.admin.schemas import (
+    AuditLogResponse,
+    AuditLogEntry,
+)
+
 from fastapi import HTTPException
+
+from datetime import datetime
 
 router = APIRouter(
     prefix="/api/v1/admin",
@@ -364,4 +376,37 @@ async def update_user(
         role=payload.role,
         department_id=payload.department_id,
         is_active=payload.is_active
+    )
+
+
+
+@router.get(
+    "/audit-logs",
+    response_model=AuditLogResponse,
+)
+async def list_audit_logs(
+    user_id: str | None = None,
+    action: str | None = None,
+    from_date: datetime | None = Query(None),
+    to_date: datetime | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: UserContext = Depends(
+        require_admin,
+    ),
+    sql_store: SQLStore = Depends(
+        get_sql_store,
+    ),
+):
+    service = AuditService(
+        sql_store,
+    )
+
+    return await service.list_audit_logs(
+        user_id=user_id,
+        action=action,
+        from_date=from_date,
+        to_date=to_date,
+        limit=limit,
+        offset=offset,
     )

@@ -2189,3 +2189,131 @@ while retrieval operates exclusively on the resolved query.
 
 - slightly richer shared workflow state
 - additional orchestration before planning
+
+
+
+# Day 19 - Complete Audit Logging & Observability
+
+## ADR-036: Enterprise Audit Logging Architecture
+
+### Status
+
+**Accepted**
+
+### Context
+
+As the Smart Knowledge Bank platform evolves into an enterprise knowledge system, security and compliance require a complete audit trail of significant system events.
+
+Prior implementations recorded only selected events (such as login and retrieval queries), leaving administrative operations without consistent audit coverage.
+
+Additionally, administrators require an API for reviewing historical audit events for compliance, security investigations, and enterprise demonstrations.
+
+### Decision
+
+Introduce a centralized audit logging strategy across all business services.
+
+The following events are now recorded:
+
+- User login
+- User logout
+- Document uploaded
+- Document ingested
+- Chat query execution
+- Permission denied
+- User creation
+- Permission rule changes
+
+Audit logs are written directly from the service responsible for the business action, ensuring that logging remains coupled with the business event rather than HTTP endpoints.
+
+An administrative API has been introduced:
+
+```http
+GET /api/v1/admin/audit-logs
+```
+
+The endpoint supports:
+
+- User filtering
+- Action filtering
+- Date range filtering
+- Pagination
+- Joined user email information
+- Reverse chronological ordering
+
+Dedicated schemas and an `AuditService` encapsulate audit retrieval logic, keeping routers free of SQL.
+
+### Consequences
+
+#### Positive
+
+- Complete compliance audit trail.
+- Consistent enterprise logging.
+- Administrative audit dashboard support.
+- Clear separation between API routing and business logic.
+- Future audit enhancements can be implemented without changing routers.
+
+#### Negative
+
+- Audit logging remains implemented individually across services.
+- Future refactoring may introduce a shared `AuditLogger` abstraction to eliminate duplicated audit write logic.
+
+---
+
+## ADR-037: Safe Observability & Agent Metrics
+
+### Status
+
+**Accepted**
+
+### Context
+
+The platform originally recorded only endpoint-level metrics during chat execution.
+
+As the architecture evolved into a multi-agent workflow, endpoint metrics alone were insufficient for understanding execution performance.
+
+Additionally, failures while recording observability data should never interrupt business operations.
+
+### Decision
+
+Introduce a dedicated `ObservabilityCollector` that wraps the lower-level `MetricsRecorder`.
+
+Responsibilities include:
+
+- Safe metric recording
+- Exception isolation
+- Endpoint metrics
+- Agent metrics
+- Success/failure tracking
+
+All observability writes are executed through the collector, preventing metrics failures from affecting application requests.
+
+Metrics are now recorded for:
+
+- `/api/v1/chat/query`
+- `/api/v1/auth/login`
+- `/api/v1/admin/documents`
+
+Each agent additionally records individual execution metrics:
+
+- Planner Agent
+- Research Agent
+- Response Agent
+
+Planner token usage is now preserved, and endpoint metrics aggregate total request token consumption by summing planner and response generation tokens.
+
+Agent-specific helper methods were introduced to remove duplicated metric recording logic while maintaining a single observability interface.
+
+### Consequences
+
+#### Positive
+
+- Metrics recording can no longer crash application requests.
+- Per-agent latency becomes visible.
+- Total request token accounting is more accurate.
+- Reduced code duplication through shared helper methods.
+- Provides the foundation for future tracing and observability dashboards.
+
+#### Negative
+
+- Metrics are now recorded at both endpoint and agent levels, increasing the number of stored metric records.
+- Research Agent currently reports zero token usage because it performs retrieval without LLM interaction.

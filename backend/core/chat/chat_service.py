@@ -8,8 +8,8 @@ from core.generation.schemas import (
     ChatQueryResponse,
 )
 
-from core.observability.metrics import (
-    MetricsRecorder,
+from core.observability.collector import (
+    ObservabilityCollector,
 )
 
 from core.retrieval.retrieval_pipeline import (
@@ -46,7 +46,7 @@ class ChatService:
             sql_store
         )
 
-        self.metrics = MetricsRecorder(
+        self.metrics = ObservabilityCollector(
             sql_store
         )
 
@@ -95,7 +95,7 @@ class ChatService:
                     "resolved_query": state["resolved_query"],
                     "confidence_score": state["confidence_score"],
                     "confidence_level": state["confidence_level"],
-                    "tokens_used": state["tokens_used"],
+                    "tokens_used": state["tokens_used"]+state["planner_tokens_used"],
                     "trace": state["trace"],
                 },
             },
@@ -199,7 +199,7 @@ class ChatService:
             await self._record_success(
                 user_id=current_user.id,
                 latency=latency,
-                tokens_used=state["tokens_used"],
+                tokens_used=state["tokens_used"] + state["planner_tokens_used"],
                 retrieval_count=len(
                     state["retrieved_chunks"]
                 ),
@@ -211,7 +211,7 @@ class ChatService:
                 citations=state["citations"],
                 confidence_score=state["confidence_score"],
                 confidence_level=state["confidence_level"],
-                tokens_used=state["tokens_used"],
+                tokens_used=state["tokens_used"] + state["planner_tokens_used"],
                 fallback=state["no_results"],
                 model_used=settings.GROQ_MODEL,
                 trace=state["trace"],

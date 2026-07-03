@@ -7,6 +7,10 @@ from core.auth.user_context import UserContext
 from core.config import settings
 from core.retrieval.retrieval_pipeline import RetrievalPipeline
 
+from core.observability.collector import (
+    ObservabilityCollector,
+)
+
 
 class ResearchAgent(Agent):
     """
@@ -41,6 +45,9 @@ class ResearchAgent(Agent):
         pipeline: RetrievalPipeline,
     ):
         self.pipeline = pipeline
+        self.metrics = ObservabilityCollector(
+            sql_store=pipeline.sql_store
+        )   
 
     async def execute(
         self,
@@ -126,6 +133,14 @@ class ResearchAgent(Agent):
                     2,
                 ),
             }
+        )
+
+        await self.metrics.record_agent_success(
+            user_id=user_context.id,
+            agent_name=self.name,
+            latency=latency,
+            tokens=0,
+            retrieval_count=len(final_chunks),
         )
 
         return state

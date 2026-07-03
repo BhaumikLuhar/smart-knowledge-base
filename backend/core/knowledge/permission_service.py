@@ -72,7 +72,7 @@ class PermissionService:
                 )
             )
 
-        return await self.sql_store.save(
+        permission = await self.sql_store.save(
             "permissions",
             {
                 "role": role,
@@ -81,3 +81,20 @@ class PermissionService:
                     can_access_department_id
             }
         )
+
+        await self.sql_store.save(
+            "audit_logs",
+            {
+                "action": "permission_rule_changed",
+                "resource_type": "permission",
+                "resource_id": str(permission["id"]),
+                "details": {
+                    "role": role,
+                    "department_id": department_id,
+                    "can_access_department_id":
+                        can_access_department_id,
+                },
+            },
+        )
+
+        return permission

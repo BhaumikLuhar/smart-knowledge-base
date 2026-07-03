@@ -88,3 +88,4 @@ class AgentState(TypedDict):
     #
     trace: list[TraceEntry]
     tokens_used: int
+    planner_tokens_used: int

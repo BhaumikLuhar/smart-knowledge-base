@@ -6,6 +6,12 @@ from agents.state import AgentState
 from core.auth.user_context import UserContext
 from core.generation.generator import Generator
 
+from storage.sql.sql_store import SQLStore
+
+from core.observability.collector import (
+    ObservabilityCollector,
+)
+
 
 class ResponseAgent(Agent):
     """
@@ -21,8 +27,11 @@ class ResponseAgent(Agent):
 
     name = "response"
 
-    def __init__(self):
+    def __init__(self,sql_store: SQLStore):
         self.generator = Generator()
+        self.metrics = ObservabilityCollector(
+            sql_store
+        )
 
     async def execute(
         self,
@@ -30,6 +39,8 @@ class ResponseAgent(Agent):
     ) -> AgentState:
 
         start = time.perf_counter()
+
+        user_context = UserContext(**state["user_context"])
 
         #
         # Never call the LLM without retrieval context.
@@ -58,9 +69,16 @@ class ResponseAgent(Agent):
                 }
             )
 
+            await self.metrics.record_agent_success(
+                user_id=user_context.id,
+                agent_name=self.name,
+                latency=latency,
+                tokens=0,
+                retrieval_count=0,
+            )
+
             return state
         
-        user_context = UserContext(**state["user_context"])
 
         response = self.generator.generate_response(
             query=state["query"],
@@ -94,6 +112,14 @@ class ResponseAgent(Agent):
                 ),
                 "latency": round(latency, 2),
             }
+        )
+
+        await self.metrics.record_agent_success(
+            user_id=user_context.id,
+            agent_name=self.name,
+            latency=latency,
+            tokens=state["tokens_used"],
+            retrieval_count=len(state["retrieved_chunks"]),
         )
 
         return state

@@ -90,7 +90,7 @@ class UserService:
                 )
             
         
-        return await self.sql_store.save(
+        user = await self.sql_store.save(
             "users",
             {
                 "email": email,
@@ -103,6 +103,27 @@ class UserService:
                 "is_active": True
             }
         )
+
+        await self.sql_store.save(
+            "audit_logs",
+            {
+                "user_id": str(user["id"]),
+                "action": "user_created",
+                "resource_type": "user",
+                "resource_id": str(user["id"]),
+                "details": {
+                    "email": user["email"],
+                    "role": user["role"],
+                    "department_id": (
+                        str(user["department_id"])
+                        if user.get("department_id")
+                        else None
+                    ),
+                },
+            },
+        )
+
+        return user
     
 
     async def update_user(

@@ -47,6 +47,7 @@ class PlannerService:
             "confidence_level": "low",
             "trace": [],
             "tokens_used": 0,
+            "planner_tokens_used": 0,
         }
 
         return await self.agent.execute(state)
