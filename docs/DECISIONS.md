@@ -2317,3 +2317,192 @@ Agent-specific helper methods were introduced to remove duplicated metric record
 
 - Metrics are now recorded at both endpoint and agent levels, increasing the number of stored metric records.
 - Research Agent currently reports zero token usage because it performs retrieval without LLM interaction.
+
+
+
+## Day 20 - Full frontend
+
+## ADR-038: Frontend Feature-Oriented Architecture
+
+**Status**
+
+Accepted
+
+### Context
+
+Until Day 19, the Smart Knowledge Bank backend exposed a complete enterprise RAG platform, including authentication, document management, multi-agent retrieval, observability, and administrative APIs.
+
+Day 20 introduces the first complete browser interface. Rather than building a collection of independent pages, the frontend must provide a cohesive application that exposes every backend capability while remaining maintainable as additional enterprise features are added.
+
+The application contains several distinct domains:
+
+- Dashboard
+- Knowledge Base
+- Chat
+- User Management
+- Settings
+
+Each domain contains its own API interactions, state management, and reusable UI components.
+
+Without clear separation, frontend pages would quickly become large, tightly coupled components that duplicate API logic and become difficult to maintain.
+
+### Decision
+
+Adopt a feature-oriented frontend architecture.
+
+The application is organized into independent feature pages:
+
+- Dashboard
+- Knowledge Base
+- Chat
+- Users
+- Settings
+
+Each feature owns:
+
+- Page component
+- Reusable feature components
+- Service layer
+- Shared type definitions
+
+HTTP communication is centralized inside dedicated service modules rather than being performed directly inside React components.
+
+Authentication state is managed through a shared `AuthContext`, allowing all pages to consume the authenticated user and token without prop drilling.
+
+Reusable UI components are shared across pages using the common `components/ui` directory.
+
+### Consequences
+
+### Positive
+
+- Clear separation of responsibilities.
+- Small, reusable React components.
+- Centralized API communication.
+- Consistent authentication handling.
+- Easier feature expansion.
+- Lower maintenance cost.
+
+### Negative
+
+- Larger number of frontend files.
+- Additional abstraction compared to directly calling APIs from pages.
+
+---
+
+## ADR-039: Session-Centric Chat User Interface
+
+**Status**
+
+Accepted
+
+### Context
+
+The backend already supported persistent chat sessions and conversation history through `SessionService`.
+
+A traditional single-chat interface would fail to expose these capabilities, forcing users to lose previous conversations and preventing long-running knowledge discovery sessions.
+
+Enterprise users frequently revisit previous discussions, compare earlier answers, and continue conversations over multiple sessions.
+
+The frontend therefore requires a dedicated session-oriented chat experience rather than a simple prompt-response interface.
+
+### Decision
+
+Implement a two-panel chat interface.
+
+The layout consists of:
+
+### Left Panel
+
+- Session history
+- New Chat button
+- Conversation switching
+
+### Right Panel
+
+- Conversation messages
+- Message composer
+- Typing indicator
+- Inline error handling
+
+Assistant messages additionally expose:
+
+- Confidence badge
+- Expandable citations
+- Reasoning trace
+- Supporting document excerpts
+
+Optimistic rendering is used for user messages so conversations remain responsive while waiting for backend completion.
+
+Loading indicators display elapsed execution time and automatically transition to a **"Still working..."** message for longer-running requests.
+
+### Consequences
+
+### Positive
+
+- Persistent conversations.
+- Better enterprise user experience.
+- Easy navigation between historical sessions.
+- Improved transparency through reasoning traces.
+- Better perceived responsiveness.
+
+### Negative
+
+- Increased frontend state management.
+- Additional synchronization between sessions and messages.
+
+---
+
+## ADR-040: Defense-in-Depth Frontend Authorization
+
+**Status**
+
+Accepted
+
+### Context
+
+The backend already enforces role-based authorization through JWT authentication and protected API endpoints.
+
+However, exposing administrative pages and actions to non-admin users creates a poor user experience by allowing users to navigate into pages that always fail with HTTP 403 responses.
+
+While frontend authorization cannot replace backend security, it can improve usability by hiding unavailable functionality before unnecessary requests are made.
+
+Examples include:
+
+- Dashboard
+- Users
+- Knowledge Base administration
+- Upload document functionality
+- Administrative settings
+
+### Decision
+
+Introduce frontend role-aware rendering while preserving backend authorization as the authoritative security layer.
+
+Administrative UI elements are rendered only when the authenticated user's role is `admin`.
+
+Examples include:
+
+- Upload Document button
+- Users page
+- Dashboard
+- Administrative configuration
+- User management actions
+
+Protected backend APIs continue to validate authorization independently using existing FastAPI dependencies.
+
+Frontend authorization is treated solely as a usability optimization and never as a security boundary.
+
+### Consequences
+
+### Positive
+
+- Cleaner user experience.
+- Eliminates unnecessary 403 requests.
+- Reduces frontend error states.
+- Maintains backend as the single source of security.
+- Preserves defense-in-depth.
+
+### Negative
+
+- Role checks now exist in both frontend and backend.
+- UI must remain synchronized with backend authorization rules.

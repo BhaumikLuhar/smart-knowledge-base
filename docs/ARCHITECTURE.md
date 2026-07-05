@@ -530,32 +530,29 @@ All persistence operations must pass through storage abstractions.
 
 ---
 
-# Current Week 2 Capabilities
+# Current Platform Capabilities
 
-Implemented:
+Implemented
 
 * JWT authentication
-* User sessions
-* Department-aware retrieval
-* Visibility-aware retrieval
-* Role-based permissions
-* Policy-based authorization
+* Role-based authorization
+* Department-aware permissions
 * Hybrid retrieval
 * Cross-Encoder reranking
-* Retrieval quality gate
+* Retrieval quality gates
 * Grounded response generation
 * Citation generation
-* Conversation persistence
-* Metrics collection
-* Comprehensive audit logging
-
-Week 2 will introduce:
-
-* Authentication
-* Permission-aware retrieval
-* Access control enforcement
-* User session management
-* Protected chat retrieval
+* Multi-agent LangGraph workflow
+* Conversation-aware retrieval
+* Session persistence
+* Enterprise audit logging
+* Observability and metrics
+* Administrative dashboard
+* User management
+* Knowledge base management
+* Complete chat interface
+* Frontend role protection
+* Settings page
 
 
 
@@ -718,16 +715,27 @@ Future providers can be added without changing the generation pipeline.
 
 ## Agent Pipeline (Week 3)
 
-The chat workflow is orchestrated using LangGraph and follows a three-agent architecture.
+The complete chat workflow combines conversational memory, LangGraph orchestration, retrieval, and grounded response generation.
 
 ```text
 Client
+   │
+   ▼
+Chat UI
    │
    ▼
 Chat Router
    │
    ▼
 ChatService
+   │
+   ▼
+SessionService
+(load history)
+   │
+   ▼
+Conversation Resolver
+(resolve retrieval query)
    │
    ▼
 run_agent_pipeline()
@@ -745,21 +753,88 @@ Response Agent
 Generator
    │
    ▼
-Groq LLM
+Groq Provider
 ```
 
-Each agent is responsible for a single stage of reasoning while sharing state through `AgentState`.
+Shared AgentState contains:
 
-- **Planner Agent**
-  - Determines retrieval strategy.
-  - Generates optimized search queries.
+- original query
+- resolved query
+- conversation history
+- retrieval strategy
+- search queries
+- retrieved chunks
+- citations
+- confidence score
+- confidence level
+- reasoning trace
 
-- **Research Agent**
-  - Executes permission-aware retrieval.
-  - Aggregates and deduplicates retrieved chunks.
+### Agent responsibilities
 
-- **Response Agent**
-  - Generates the grounded answer.
-  - Produces structured citations.
-  - Calculates confidence.
-  - Records execution trace.
+#### Planner Agent
+
+- analyzes the request
+- determines retrieval strategy
+- generates optimized search queries
+
+#### Research Agent
+
+- executes permission-aware retrieval
+- aggregates and deduplicates retrieved chunks
+- preserves retrieval trace
+
+#### Response Agent
+
+- generates grounded responses
+- builds citations
+- computes confidence
+- records execution trace
+
+
+
+
+---
+
+# Frontend Architecture
+
+The frontend is implemented using Next.js with feature-oriented pages and reusable UI components.
+
+```text
+Frontend
+│
+├── Dashboard
+├── Knowledge Base
+├── Chat
+├── Users
+└── Settings
+```
+
+Application state is divided into:
+
+- Authentication (AuthContext)
+- API Services
+- Feature Components
+
+## Chat UI architecture
+
+```text
+Chat Page
+│
+├── Chat Sidebar
+│     └── Session History
+│
+├── Chat Window
+│     ├── Message Bubble
+│     ├── Citation Panel
+│     ├── Confidence Badge
+│     ├── Reasoning Panel
+│     └── Typing Indicator
+│
+└── Chat Input
+```
+
+Administrative pages are protected through both frontend role checks and backend authorization.
+
+API communication is centralized through service modules that encapsulate all HTTP requests.
+
+This separation keeps presentation components independent from backend implementation details while allowing future UI changes without affecting business logic.

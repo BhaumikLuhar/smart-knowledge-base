@@ -138,6 +138,35 @@ class ChatService:
         )
 
 
+    async def _record_query_audit(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        query: str,
+        state: dict,
+    ) -> None:
+
+        print(">>> RECORDING CHAT AUDIT")
+
+        await self.sql_store.save(
+            "audit_logs",
+            {
+                "user_id": user_id,
+                "action": "query",
+                "resource_type": "chat",
+                "resource_id": session_id,
+                "details": {
+                    "query": query,
+                    "confidence_level":
+                        state["confidence_level"],
+                    "confidence_score":
+                        state["confidence_score"],
+                },
+            },
+        )
+
+
     async def query(
         self,
         *,
@@ -203,6 +232,13 @@ class ChatService:
                 retrieval_count=len(
                     state["retrieved_chunks"]
                 ),
+            )
+
+            await self._record_query_audit(
+                user_id=current_user.id,
+                session_id=str(session["id"]),
+                query=message,
+                state=state,
             )
 
             return ChatQueryResponse(

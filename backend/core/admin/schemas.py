@@ -39,3 +39,28 @@ class AuditLogResponse(BaseModel):
     offset: int
 
     items: list[AuditLogEntry]
+
+
+
+class RecentQuerySummary(BaseModel):
+    user: str
+    query: str
+    timestamp: datetime
+    confidence: str
+
+
+class DashboardSummaryResponse(BaseModel):
+    total_queries_today: int
+    average_latency_ms: int
+    active_users: int
+    documents_ready: int
+    recent_queries: list[RecentQuerySummary]
+
+
+
+class SystemConfigResponse(BaseModel):
+    chunk_size: int
+    chunk_overlap: int
+    candidate_top_k: int
+    final_top_k: int
+    max_sessions: int

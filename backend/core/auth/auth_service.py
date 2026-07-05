@@ -4,7 +4,7 @@ from fastapi import HTTPException
 
 from storage.sql.sql_store import SQLStore
 
-from core.auth.password import verify_password
+from core.auth.password import verify_password, hash_password
 from core.auth.jwt_service import create_token
 
 import time
@@ -173,3 +173,67 @@ class AuthService:
             )
 
         return result[0]
+    
+
+
+    async def change_password(
+        self,
+        *,
+        user_id: str,
+        current_password: str,
+        new_password: str,
+        confirm_password: str,
+    ) -> dict:
+
+        users = await self.sql_store.query(
+            "users",
+            {
+                "id": user_id,
+            },
+        )
+
+        if not users:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found",
+            )
+
+        user = users[0]
+
+        if not verify_password(
+            current_password,
+            user["hashed_password"],
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Current password is incorrect",
+            )
+
+        if new_password != confirm_password:
+            raise HTTPException(
+                status_code=400,
+                detail="Passwords do not match",
+            )
+
+        await self.sql_store.update(
+            "users",
+            user_id,
+            {
+                "hashed_password": hash_password(
+                    new_password
+                ),
+            },
+        )
+
+        await self.sql_store.save(
+            "audit_logs",
+            {
+                "user_id": user_id,
+                "action": "password_changed",
+                "resource_type": "auth",
+            },
+        )
+
+        return {
+            "message": "Password updated successfully",
+        }

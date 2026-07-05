@@ -114,3 +114,27 @@ export async function apiUpload(
 
   return response.json();
 }
+
+
+
+export async function apiDelete(
+  endpoint: string
+) {
+  const response = await fetch(
+    `${API_BASE_URL}${endpoint}`,
+    {
+      method: "DELETE",
+      headers: {
+        ...getAuthHeaders(),
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `API Error: ${response.status}`
+    );
+  }
+
+  return response.json();
+}

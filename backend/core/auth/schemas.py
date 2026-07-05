@@ -32,3 +32,10 @@ class UpdateUserRequest(BaseModel):
     role: str | None = None
     department_id: str | None = None
     is_active: bool | None = None
+
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str

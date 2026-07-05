@@ -47,9 +47,15 @@ from core.admin.audit_service import (
     AuditService
 )
 
+from core.admin.dashboard_service import (
+    DashboardService
+)
+
 from core.admin.schemas import (
     AuditLogResponse,
     AuditLogEntry,
+    DashboardSummaryResponse,
+    SystemConfigResponse,
 )
 
 from fastapi import HTTPException
@@ -410,3 +416,48 @@ async def list_audit_logs(
         limit=limit,
         offset=offset,
     )
+
+
+
+@router.get(
+    "/metrics/summary",
+    response_model=DashboardSummaryResponse,
+)
+async def metrics_summary(
+    current_user: UserContext = Depends(
+        require_admin,
+    ),
+    sql_store: SQLStore = Depends(
+        get_sql_store,
+    ),
+):
+    """
+    Dashboard summary for the admin page.
+    """
+
+    service = DashboardService(
+        sql_store,
+    )
+
+    return await service.get_summary()
+
+
+
+@router.get(
+    "/config",
+    response_model=SystemConfigResponse,
+)
+async def get_system_config(
+    current_user: UserContext = Depends(
+        require_admin,
+    ),
+    sql_store: SQLStore = Depends(
+        get_sql_store,
+    ),
+):
+
+    service = DashboardService(
+        sql_store,
+    )
+
+    return await service.get_system_config()

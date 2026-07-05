@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 class Citation(BaseModel):
     """
@@ -126,3 +127,70 @@ class PlannerResponse(BaseModel):
     queries: list[str]
 
     trace: list[dict]
+
+
+
+class SessionListItem(BaseModel):
+    """
+    Session item displayed in the chat sidebar.
+    """
+
+    id: UUID
+
+    created_at: datetime
+
+    last_active: datetime
+
+    last_message_role: str | None = None
+
+    last_message: str | None = None
+
+    last_message_at: datetime | None = None
+
+
+class SessionListResponse(BaseModel):
+    """
+    Response returned by GET /chat/sessions.
+    """
+
+    sessions: list[SessionListItem]
+
+
+class SessionMessage(BaseModel):
+    """
+    Single message inside a chat session.
+    """
+
+    id: UUID
+
+    role: str
+
+    content: str
+
+    metadata: dict = Field(
+        default_factory=dict
+    )
+
+    created_at: datetime
+
+
+class SessionMessagesResponse(BaseModel):
+    """
+    Complete conversation history.
+    """
+
+    session_id: UUID
+
+    messages: list[SessionMessage]
+
+
+class CreateSessionResponse(BaseModel):
+    """
+    Returned when a new chat session is created.
+    """
+
+    id: UUID
+
+    created_at: datetime
+
+    last_active: datetime

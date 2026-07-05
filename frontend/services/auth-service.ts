@@ -1,4 +1,5 @@
 import { LoginResponse } from "@/types/auth";
+import { apiGet, apiPut } from "@/lib/api";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL;
@@ -48,4 +49,24 @@ export async function logoutRequest(
     }
   );
 
+}
+
+
+export async function getCurrentUser() {
+  return apiGet(
+    "/api/v1/auth/me"
+  );
+}
+
+export async function changePassword(
+  body: {
+    current_password: string;
+    new_password: string;
+    confirm_password: string;
+  }
+) {
+  return apiPut(
+    "/api/v1/auth/password",
+    body
+  );
 }

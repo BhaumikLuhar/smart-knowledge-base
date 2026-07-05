@@ -11,7 +11,8 @@ from storage.sql.sql_store import (
 
 from core.auth.schemas import (
     LoginRequest,
-    LoginResponse
+    LoginResponse,
+    ChangePasswordRequest,
 )
 
 from core.auth.auth_service import (
@@ -65,4 +66,26 @@ async def me(
 
     return await service.get_profile(
         current_user.id
+    )
+
+
+
+@router.put("/password")
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: UserContext = Depends(
+        get_current_user,
+    ),
+    sql_store: SQLStore = Depends(
+        get_sql_store,
+    ),
+):
+
+    service = AuthService(sql_store)
+
+    return await service.change_password(
+        user_id=current_user.id,
+        current_password=payload.current_password,
+        new_password=payload.new_password,
+        confirm_password=payload.confirm_password,
     )

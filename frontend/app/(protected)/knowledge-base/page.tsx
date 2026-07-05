@@ -16,6 +16,8 @@ import { Department } from "@/types/department";
 
 import { Document } from "@/types/document";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 import {
   Select,
   SelectContent,
@@ -34,6 +36,11 @@ export default function KnowledgeBasePage() {
   const [selectedDepartment, setSelectedDepartment] =
     useState("all");
 
+  const { user } = useAuth();
+
+  const isAdmin =
+    user?.role === "admin";
+
   const filteredDocuments =
     selectedDepartment === "all"
       ? documents
@@ -45,6 +52,9 @@ export default function KnowledgeBasePage() {
 
   async function loadData() {
     try {
+      if (!isAdmin) {
+        return;
+      }
       const [
         departmentData,
         documentData,
@@ -72,6 +82,22 @@ export default function KnowledgeBasePage() {
     loadData();
   }, []);
 
+  if (!isAdmin) {
+    return (
+      <div className="space-y-4">
+
+        <h1 className="text-3xl font-bold">
+          Knowledge Base
+        </h1>
+
+        <div className="rounded-lg border p-6 text-muted-foreground">
+          Only administrators can manage the knowledge base.
+        </div>
+
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between">
@@ -86,10 +112,12 @@ export default function KnowledgeBasePage() {
           </p>
         </div>
 
-        <UploadDocumentDialog
-          departments={departments}
-          onUploaded={loadData}
-        />
+        {isAdmin && (
+          <UploadDocumentDialog
+            departments={departments}
+            onUploaded={loadData}
+          />
+        )}
       </div>
 
       <section>

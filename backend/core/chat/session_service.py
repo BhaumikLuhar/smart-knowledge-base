@@ -1,3 +1,5 @@
+import json
+
 from storage.sql.sql_store import SQLStore
 
 from core.memory.session_memory import SessionMemory
@@ -119,3 +121,108 @@ class SessionService:
                 "last_active": "NOW()",
             },
         )
+    
+
+
+    async def list_sessions(
+        self,
+        user_id: str,
+    ) -> list[dict]:
+        """
+        Return all chat sessions for the current user,
+        ordered by most recently active first.
+
+        Each session includes the latest message preview
+        so the frontend can render the sidebar.
+        """
+
+        return await self.sql_store.execute_raw(
+            """
+            SELECT
+                s.id,
+                s.created_at,
+                s.last_active,
+
+                lm.role AS last_message_role,
+                lm.content AS last_message,
+
+                lm.created_at AS last_message_at
+
+            FROM sessions s
+
+            LEFT JOIN LATERAL (
+                SELECT
+                    role,
+                    content,
+                    created_at
+                FROM messages
+                WHERE session_id = s.id
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) lm ON TRUE
+
+            WHERE s.user_id = $1
+
+            ORDER BY s.last_active DESC
+            """,
+            (user_id,),
+        )
+    
+
+
+    async def get_session_messages(
+        self,
+        session_id: str,
+        user_id: str,
+    ) -> list[dict]:
+        """
+        Return every message belonging to a session.
+
+        Ownership is verified before messages
+        are returned.
+        """
+
+        session = await self.get_session(
+            session_id=session_id,
+            user_id=user_id,
+        )
+
+        if session is None:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Session does not belong "
+                    "to the current user."
+                ),
+            )
+
+        messages = await self.sql_store.execute_raw(
+            """
+            SELECT
+                id,
+                role,
+                content,
+                metadata,
+                created_at
+            FROM messages
+            WHERE session_id = $1
+            ORDER BY created_at ASC
+            """,
+            (session_id,),
+        )
+
+        #
+        # SQLStore currently returns JSON fields as strings.
+        # Convert metadata back into dictionaries so the
+        # response matches the Pydantic schema.
+        #
+        for message in messages:
+            metadata = message.get("metadata")
+
+            if isinstance(metadata, str):
+                try:
+                    message["metadata"] = json.loads(metadata)
+                except json.JSONDecodeError:
+                    message["metadata"] = {}
+
+        return messages

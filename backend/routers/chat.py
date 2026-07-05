@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi import Depends
+from uuid import UUID
 
 from core.auth.dependencies import (
     get_current_user,
@@ -13,11 +14,18 @@ from core.chat.chat_service import (
     ChatService,
 )
 
+from core.chat.session_service import (
+    SessionService,
+)
+
 from core.generation.schemas import (
     ChatQueryRequest,
     ChatQueryResponse,
     PlannerRequest,
     PlannerResponse,
+    SessionListResponse,
+    SessionMessagesResponse,
+    CreateSessionResponse,
 )
 
 from agents.planner.planner_service import PlannerService
@@ -100,4 +108,96 @@ async def plan(
         strategy=state["retrieval_strategy"],
         queries=state["search_queries"],
         trace=state["trace"],
+    )
+
+
+@router.post(
+    "/sessions",
+    response_model=CreateSessionResponse,
+)
+async def create_session(
+    sql_store: SQLStore = Depends(
+        get_sql_store,
+    ),
+    current_user: UserContext = Depends(
+        get_current_user,
+    ),
+):
+    """
+    Create a new empty chat session.
+
+    Used by the frontend "New Chat" button.
+    """
+
+    service = SessionService(sql_store)
+
+    session = await service.create_session(
+        current_user.id,
+    )
+
+    return CreateSessionResponse(
+        id=session["id"],
+        created_at=session["created_at"],
+        last_active=session["last_active"],
+    )
+
+
+
+@router.get(
+    "/sessions",
+    response_model=SessionListResponse,
+)
+async def list_sessions(
+    sql_store: SQLStore = Depends(
+        get_sql_store,
+    ),
+    current_user: UserContext = Depends(
+        get_current_user,
+    ),
+):
+    """
+    Return all sessions belonging
+    to the authenticated user.
+    """
+
+    service = SessionService(sql_store)
+
+    sessions = await service.list_sessions(
+        current_user.id,
+    )
+
+    return SessionListResponse(
+        sessions=sessions,
+    )
+
+
+
+@router.get(
+    "/sessions/{session_id}/messages",
+    response_model=SessionMessagesResponse,
+)
+async def get_session_messages(
+    session_id: str,
+    sql_store: SQLStore = Depends(
+        get_sql_store,
+    ),
+    current_user: UserContext = Depends(
+        get_current_user,
+    ),
+):
+    """
+    Return the complete conversation
+    history for one chat session.
+    """
+
+    service = SessionService(sql_store)
+
+    messages = await service.get_session_messages(
+        session_id=session_id,
+        user_id=current_user.id,
+    )
+
+    return SessionMessagesResponse(
+        session_id=UUID(session_id),
+        messages=messages,
     )
