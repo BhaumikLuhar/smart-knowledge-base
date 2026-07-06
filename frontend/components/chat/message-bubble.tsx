@@ -4,7 +4,7 @@ import CitationPanel from "./citation-panel";
 import ConfidenceBadge from "./confidence-badge";
 import ReasoningPanel from "./reasoning-panel";
 
-import { ChatMessage } from "@/types/chat";
+import { ChatMessage, TraceStep } from "@/types/chat";
 
 interface Props {
   message: ChatMessage;
@@ -20,7 +20,7 @@ export default function MessageBubble({
     (message.metadata ?? {}) as {
   confidence_level?: "low" | "medium" | "high";
   citations?: any[];
-  trace?: Record<string, unknown>[];
+  trace?: TraceStep[];
 };
 
   return (
@@ -66,10 +66,7 @@ export default function MessageBubble({
             <ReasoningPanel
               trace={
                 (metadata.trace ??
-                  []) as Record<
-                  string,
-                  unknown
-                >[]
+                  []) as TraceStep[]
               }
             />
 

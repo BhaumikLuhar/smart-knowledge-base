@@ -553,7 +553,12 @@ Implemented
 * Complete chat interface
 * Frontend role protection
 * Settings page
-
+* Shared loading spinner component
+* Reusable frontend error cards
+* Consistent empty-state components
+* Session-based chat interface
+* Agent execution reasoning display
+* Confidence visualization
 
 
 
@@ -821,14 +826,19 @@ Application state is divided into:
 Chat Page
 │
 ├── Chat Sidebar
-│     └── Session History
+│     ├── Session History
+│     └── New Chat
 │
 ├── Chat Window
-│     ├── Message Bubble
-│     ├── Citation Panel
-│     ├── Confidence Badge
-│     ├── Reasoning Panel
-│     └── Typing Indicator
+│     ├── User Messages
+│     ├── Assistant Messages
+│     │      ├── Confidence Badge
+│     │      ├── Citation Panel
+│     │      └── Reasoning Panel
+│     │
+│     ├── Typing Indicator
+│     ├── Loading Spinner
+│     └── Error Card
 │
 └── Chat Input
 ```
@@ -838,3 +848,21 @@ Administrative pages are protected through both frontend role checks and backend
 API communication is centralized through service modules that encapsulate all HTTP requests.
 
 This separation keeps presentation components independent from backend implementation details while allowing future UI changes without affecting business logic.
+
+
+
+## Shared UI Infrastructure
+
+To provide a consistent user experience across all pages, the frontend reuses common presentation components.
+
+Shared UI behaviors include:
+
+- Loading spinner component
+- Error card component
+- Empty-state messaging
+- Feature-oriented service layer
+- Centralized API helper
+- Authentication context
+- Reusable UI primitives
+
+Pages remain focused on business logic while presentation concerns are shared through reusable components.

@@ -2192,9 +2192,9 @@ while retrieval operates exclusively on the resolved query.
 
 
 
-# Day 19 - Complete Audit Logging & Observability
+## Day 19 - Complete Audit Logging & Observability
 
-## ADR-036: Enterprise Audit Logging Architecture
+### ADR-036: Enterprise Audit Logging Architecture
 
 ### Status
 

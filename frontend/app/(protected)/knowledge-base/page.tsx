@@ -18,6 +18,10 @@ import { Document } from "@/types/document";
 
 import { useAuth } from "@/contexts/AuthContext";
 
+import LoadingState from "@/components/common/loading-state";
+import ErrorCard from "@/components/common/error-card";
+import EmptyState from "@/components/common/empty-state";
+
 import {
   Select,
   SelectContent,
@@ -41,6 +45,10 @@ export default function KnowledgeBasePage() {
   const isAdmin =
     user?.role === "admin";
 
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] = useState("");
+
   const filteredDocuments =
     selectedDepartment === "all"
       ? documents
@@ -51,6 +59,8 @@ export default function KnowledgeBasePage() {
       );
 
   async function loadData() {
+    setLoading(true);
+    setError("");
     try {
       if (!isAdmin) {
         return;
@@ -71,10 +81,12 @@ export default function KnowledgeBasePage() {
         documentData
       );
     } catch (error) {
-      console.error(
-        "Failed loading KB data",
-        error
+      setError(
+        "Unable to load the knowledge base."
       );
+    }
+    finally {
+      setLoading(false);
     }
   }
 
@@ -95,6 +107,24 @@ export default function KnowledgeBasePage() {
         </div>
 
       </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <LoadingState
+        title="Loading Knowledge Base"
+        description="Fetching departments and documents..."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <ErrorCard
+        message={error}
+        onRetry={loadData}
+      />
     );
   }
 
@@ -125,19 +155,22 @@ export default function KnowledgeBasePage() {
           Departments
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {departments.map((dept) => (
-            <DepartmentCard
-              key={dept.id}
-              name={
-                dept.display_name
-              }
-              count={
-                dept.document_count
-              }
-            />
-          ))}
-        </div>
+        {departments.length === 0 ? (
+          <EmptyState
+            title="No departments available"
+            description="Create a department before uploading documents."
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {departments.map((dept) => (
+              <DepartmentCard
+                key={dept.id}
+                name={dept.display_name}
+                count={dept.document_count}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <section>
@@ -175,9 +208,16 @@ export default function KnowledgeBasePage() {
           </Select>
         </div>
 
-        <DocumentTable
-          documents={filteredDocuments}
-        />
+        {filteredDocuments.length === 0 ? (
+          <EmptyState
+            title="No documents uploaded yet"
+            description="Upload your first document to begin building the knowledge base."
+          />
+        ) : (
+          <DocumentTable
+            documents={filteredDocuments}
+          />
+        )}
       </section>
     </div>
   );

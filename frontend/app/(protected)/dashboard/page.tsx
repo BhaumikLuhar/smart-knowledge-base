@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 
 import StatCard from "@/components/dashboard/stat-card";
 import RecentQueryTable from "@/components/dashboard/recent-query-table";
-
+import LoadingState from "@/components/common/loading-state";
+import ErrorCard from "@/components/common/error-card";
+import EmptyState from "@/components/common/empty-state";
 import { getDashboardSummary } from "@/services/dashboard-service";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,39 +78,21 @@ export default function DashboardPage() {
   }, []);
 
   if (loading) {
-
     return (
-      <div className="space-y-6">
-
-        <h1 className="text-3xl font-bold">
-          Dashboard
-        </h1>
-
-        <div className="text-muted-foreground">
-          Loading dashboard...
-        </div>
-
-      </div>
+      <LoadingState
+        title="Loading Dashboard"
+        description="Fetching the latest system metrics..."
+      />
     );
-
   }
 
   if (error) {
-
     return (
-      <div className="space-y-6">
-
-        <h1 className="text-3xl font-bold">
-          Dashboard
-        </h1>
-
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-700">
-          {error}
-        </div>
-
-      </div>
+      <ErrorCard
+        message={error}
+        onRetry={loadDashboard}
+      />
     );
-
   }
 
   if (!isAdmin) {
@@ -132,9 +116,12 @@ export default function DashboardPage() {
   }
 
   if (!summary) {
-
-    return null;
-
+    return (
+      <EmptyState
+        title="No dashboard data available"
+        description="Metrics will appear here once the system starts receiving activity."
+      />
+    );
   }
 
   return (

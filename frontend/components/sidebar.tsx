@@ -7,44 +7,73 @@ import {
   MessageSquare,
   Users,
   Settings,
+  ScrollText,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
-
-const navItems = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Knowledge Base",
-    href: "/knowledge-base",
-    icon: Database,
-  },
-  {
-    label: "Chat",
-    href: "/chat",
-    icon: MessageSquare,
-  },
-  {
-    label: "Users",
-    href: "/users",
-    icon: Users,
-  },
-  {
-    label: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-];
+import { useRouter, usePathname } from "next/navigation";
 
 export default function Sidebar() {
+
+  const pathname = usePathname();
 
   const { user, logout } = useAuth();
 
   const router = useRouter();
+
+  const navItems = [
+
+    ...(user?.role === "admin"
+      ? [
+
+        {
+          label: "Dashboard",
+          href: "/dashboard",
+          icon: LayoutDashboard,
+        },
+
+        {
+          label: "Knowledge Base",
+          href: "/knowledge-base",
+          icon: Database,
+        },
+
+        {
+          label: "Users",
+          href: "/users",
+          icon: Users,
+        },
+
+        {
+          label: "Audit Logs",
+          href: "/audit-logs",
+          icon: ScrollText,
+        },
+
+      ]
+      : []),
+
+    {
+
+      label: "Chat",
+
+      href: "/chat",
+
+      icon: MessageSquare,
+
+    },
+
+    {
+
+      label: "Settings",
+
+      href: "/settings",
+
+      icon: Settings,
+
+    },
+
+  ];
 
   async function handleLogout() {
 
@@ -70,7 +99,10 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-muted transition"
+              className={`flex items-center gap-3 rounded-md px-3 py-2 transition ${pathname === item.href
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-muted"
+                }`}
             >
               <Icon className="h-4 w-4" />
               <span>{item.label}</span>

@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 
 import UserTable from "@/components/users/user-table";
 import UserDialog from "@/components/users/user-dialog";
+import LoadingState from "@/components/common/loading-state";
+import EmptyState from "@/components/common/empty-state";
+import ErrorCard from "@/components/common/error-card";
 
 import {
   createUser,
@@ -200,6 +203,51 @@ export default function UsersPage() {
 
   }
 
+  if (loading && users.length === 0) {
+    return (
+      <LoadingState
+        title="Loading Users"
+        description="Fetching user accounts..."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-8">
+
+        <div className="flex items-center justify-between">
+
+          <div>
+
+            <h1 className="text-3xl font-bold">
+              Users
+            </h1>
+
+            <p className="text-muted-foreground">
+              Manage system users.
+            </p>
+
+          </div>
+
+          <Button
+            onClick={handleAdd}
+            disabled
+          >
+            Add User
+          </Button>
+
+        </div>
+
+        <ErrorCard
+          message={error}
+          onRetry={loadData}
+        />
+
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
 
@@ -228,17 +276,18 @@ export default function UsersPage() {
 
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-700">
-          {error}
-        </div>
+      {users.length === 0 ? (
+        <EmptyState
+          title="No users found"
+          description="Create your first user to get started."
+        />
+      ) : (
+        <UserTable
+          users={users}
+          loading={loading}
+          onEdit={handleEdit}
+        />
       )}
-
-      <UserTable
-        users={users}
-        loading={loading}
-        onEdit={handleEdit}
-      />
 
       <UserDialog
         open={dialogOpen}

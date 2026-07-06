@@ -8,7 +8,15 @@ export interface Citation {
 }
 
 export interface TraceStep {
-  [key: string]: unknown;
+
+  agent_name: string;
+
+  input_summary: string;
+
+  output_summary: string;
+
+  latency: number;
+
 }
 
 export interface ChatResponse {

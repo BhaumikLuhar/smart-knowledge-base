@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
+import LoadingState from "@/components/common/loading-state";
+import ErrorCard from "@/components/common/error-card";
 import {
   getSystemConfig,
 } from "@/services/dashboard-service";
@@ -122,9 +123,19 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div>
-        Loading...
-      </div>
+      <LoadingState
+        title="Loading Settings"
+        description="Fetching your profile and system configuration..."
+      />
+    );
+  }
+
+  if (error && !profile) {
+    return (
+      <ErrorCard
+        message={error}
+        onRetry={loadProfile}
+      />
     );
   }
 

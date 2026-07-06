@@ -11,7 +11,7 @@ load_dotenv(ROOT / ".env", override=True)
 class Settings(BaseSettings):
     # LLM
     GROQ_API_KEY: str
-    GROQ_MODEL: str = "llama-3.1-8b-instant"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
 
     # Database
     DATABASE_URL: str
