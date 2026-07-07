@@ -28,7 +28,7 @@ class LLMProvider(ABC):
         )
         """
         raise NotImplementedError
-    
+
 
 class GroqProvider(LLMProvider):
     """
@@ -63,6 +63,21 @@ class GroqProvider(LLMProvider):
         temperature: float = 0.1,
     ) -> tuple[str, int]:
 
+        answer, tokens, _ = self.generate_with_metadata(
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+        return answer, tokens
+
+    def generate_with_metadata(
+        self,
+        messages: list[dict],
+        max_tokens: int = 1024,
+        temperature: float = 0.1,
+    ) -> tuple[str, int, dict]:
+
         response = self.client.chat.completions.create(
             model=settings.GROQ_MODEL,
             messages=messages,
@@ -78,8 +93,16 @@ class GroqProvider(LLMProvider):
             else 0
         )
 
-        return answer, tokens
-    
+        metadata = {
+            "finish_reason": (
+                response.choices[0].finish_reason
+                if response.choices
+                else None
+            ),
+        }
+
+        return answer, tokens, metadata
+
 
 _provider = None
 

@@ -2506,3 +2506,101 @@ Frontend authorization is treated solely as a usability optimization and never a
 
 - Role checks now exist in both frontend and backend.
 - UI must remain synchronized with backend authorization rules.
+
+
+## Day 21.5 – Planner & Query Resolution Quality Improvements
+
+### ADR-041: Retrieval-Oriented Planner Query Generation
+
+**Status**
+
+Accepted
+
+### Context
+
+The original Planner Agent generated concise search queries directly from the user's request. While functionally correct, these queries often mirrored the user's wording without considering how enterprise documents are typically written.
+
+Examples such as:
+
+- "leave policy"
+- "onboarding"
+- "budget"
+
+were sufficient for simple retrieval but frequently reduced recall for hybrid retrieval because they lacked enterprise terminology, policy names, and alternate document phrasing.
+
+Since the retrieval pipeline combines semantic search, BM25 keyword search, and reranking, improving planner query quality was expected to improve retrieval quality without modifying the retrieval pipeline itself.
+
+### Decision
+
+The planner prompt was redesigned to behave as a retrieval query planner instead of a keyword extractor.
+
+The revised prompt instructs the LLM to:
+
+- Generate retrieval-oriented search queries rather than conversational rewrites.
+- Preserve user intent while using enterprise terminology.
+- Generate complementary search queries instead of nearly identical variations.
+- Improve BM25 keyword coverage through likely policy names and document terminology.
+- Maintain compatibility with the existing planner JSON schema.
+- Continue producing at most three search queries.
+
+No changes were made to the planner architecture, state model, or downstream workflow.
+
+### Consequences
+
+#### Positive
+
+- Improved retrieval recall for enterprise documents.
+- Better hybrid retrieval performance through richer query formulation.
+- No architectural changes required.
+- Fully backward compatible with the Research Agent.
+- Existing planner validation and fallback logic remain unchanged.
+
+#### Negative
+
+- Planner output quality is still dependent on LLM performance.
+- Query quality may vary slightly across different language models.
+
+---
+
+### ADR-042: Query Resolution Robustness and Production Validation
+
+**Status**
+
+Accepted
+
+### Context
+
+The Query Resolver is responsible for converting conversational follow-up questions into standalone retrieval queries.
+
+The original implementation relied on a lightweight prompt and limited validation, which occasionally resulted in incomplete rewrites, ambiguous references, or malformed model responses.
+
+Before continuing with later stages of the project, the query resolution component required production-level validation to ensure stable behavior across realistic enterprise conversations.
+
+### Decision
+
+The Query Resolver was refined without changing its public interface.
+
+Improvements included:
+
+- Redesigned prompt focused on enterprise retrieval.
+- Stronger validation of rewritten queries.
+- Safer fallback behavior when rewrites are invalid.
+- Improved handling of conversational references.
+- Expanded regression and integration testing.
+- Production-oriented evaluation using diverse conversation scenarios.
+
+The resolver continues returning a single standalone query while remaining fully compatible with the Planner Agent.
+
+### Consequences
+
+#### Positive
+
+- More reliable conversational query rewriting.
+- Improved retrieval quality for follow-up questions.
+- Reduced risk of malformed planner inputs.
+- Better production readiness through comprehensive testing.
+
+#### Negative
+
+- Additional prompt complexity slightly increases LLM token usage.
+- Some highly ambiguous conversations may still require fallback to the original query.

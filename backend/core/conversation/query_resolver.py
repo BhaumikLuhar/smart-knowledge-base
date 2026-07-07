@@ -1,23 +1,77 @@
+import json
+import logging
 import re
 
-from core.generation.prompts import (
-    QUERY_RESOLVER_SYSTEM_PROMPT_V1,QUERY_RESOLVER_SYSTEM_PROMPT_V2,
-)
 from core.generation.llm_provider import get_llm
+from core.generation.prompts import QUERY_RESOLVER_SYSTEM_PROMPT_V3
 
-MAX_ASSISTANT_CHARS = 250
+
+logger = logging.getLogger(__name__)
+
+MAX_ASSISTANT_CHARS = 400
+MAX_HISTORY_MESSAGES = 8
+MAX_REWRITE_CHARS = 320
+
+FOLLOW_UP_PREFIXES = (
+    "and",
+    "also",
+    "same for",
+    "same with",
+    "same as",
+    "same one",
+    "what about",
+    "how about",
+    "what if",
+    "continue",
+    "tell me more",
+    "more details",
+    "explain more",
+    "elaborate",
+    "expand",
+    "before",
+    "after",
+    "during",
+)
+
+SHORT_DEPENDENT_PREFIXES = (
+    "how many",
+    "how long",
+    "how soon",
+    "when",
+    "where",
+    "why",
+    "who",
+    "which",
+    "what about",
+    "how about",
+    "what if",
+)
+
+REFUSAL_PATTERN = re.compile(
+    r"^(?:"
+    r"i'?m sorry|"
+    r"i am sorry|"
+    r"sorry|"
+    r"as an ai|"
+    r"i can'?t|"
+    r"i cannot|"
+    r"cannot help"
+    r")",
+    flags=re.IGNORECASE,
+)
+
+MULTILINE_OR_MARKUP_PATTERN = re.compile(
+    r"\n|```|^\s*[-*•]\s+|^\s*#{1,6}\s+",
+    flags=re.MULTILINE,
+)
 
 
 class QueryResolver:
     """
-    Resolves conversational follow-up questions into
-    standalone retrieval queries.
+    Resolves conversational follow-up questions into standalone retrieval queries.
 
-    The resolver is intentionally conservative.
-
-    It rewrites only when the current query clearly
-    depends on previous conversation. Standalone
-    questions are returned unchanged.
+    The resolver rewrites only when the latest query clearly depends on prior
+    conversation. Otherwise the original question is returned unchanged.
     """
 
     PRONOUN_PATTERN = re.compile(
@@ -27,153 +81,231 @@ class QueryResolver:
         r"he|him|his|"
         r"she|her|"
         r"such"
+        r"here|there"
         r")\b",
         flags=re.IGNORECASE,
     )
 
-    CONTINUATION_PATTERN = re.compile(
-        r"^(?:"
-        r"and\b|"
-        r"also\b|"
-        r"what about\b|"
-        r"how about\b|"
-        r"anything else\b|"
-        r"what else\b|"
-        r"tell me more\b|"
-        r"more details\b|"
-        r"continue\b|"
-        r"go on\b"
-        r")",
-        flags=re.IGNORECASE,
-    )
+    def _normalize_text(self, text: str) -> str:
+        return re.sub(r"\s+", " ", text or "").strip()
 
-    SHORT_FOLLOW_UP_PATTERN = re.compile(
-        r"^(?:"
-        r"how many(?:\s+\w+){0,2}\??|"
-        r"how long(?:\s+\w+){0,2}\??|"
-        r"when\??|"
-        r"where\??|"
-        r"why\??|"
-        r"who\??|"
-        r"which one\??"
-        r")$",
-        flags=re.IGNORECASE,
-    )
+    def _comparison_key(self, text: str) -> str:
+        return re.sub(
+            r"[.?!\s]+$",
+            "",
+            self._normalize_text(text),
+        ).casefold()
 
-    ANSWER_PATTERN = re.compile(
-        r"(according to|the policy|employees|states that|provides|receive|includes)",
-        flags=re.IGNORECASE,
-    )
+    def _starts_with_phrase(
+        self,
+        text: str,
+        phrase: str,
+    ) -> bool:
+        return re.match(
+            rf"^{re.escape(phrase)}(?:\b|$)",
+            text,
+        ) is not None
 
-    def _needs_resolution(
+    def _select_history(
+        self,
+        history: list[dict],
+    ) -> list[dict]:
+        selected = []
+
+        for message in history:
+            content = self._normalize_text(str(message.get("content", "")))
+
+            if not content:
+                continue
+
+            role = str(message.get("role", "")).strip().lower()
+
+            if role not in {"user", "assistant"}:
+                continue
+
+            selected.append(
+                {
+                    "role": role,
+                    "content": content,
+                }
+            )
+
+        return selected[-MAX_HISTORY_MESSAGES:]
+
+    def _resolution_decision(
         self,
         query: str,
         history: list[dict],
-    ) -> bool:
+    ) -> tuple[bool, str]:
         """
-        Determine whether the current query
-        likely depends on previous conversation.
+        Decide whether the latest query depends on previous conversation.
         """
 
         if not history:
-            return False
+            return False, "no_history"
 
-        query = query.strip()
+        normalized_query = self._normalize_text(query)
 
-        if self.PRONOUN_PATTERN.search(query):
-            return True
+        if not normalized_query:
+            return False, "empty_query"
 
-        if self.CONTINUATION_PATTERN.search(query):
-            return True
+        query_lower = normalized_query.casefold()
 
-        if self.SHORT_FOLLOW_UP_PATTERN.fullmatch(query):
-            return True
+        if self.PRONOUN_PATTERN.search(query_lower):
+            return True, "explicit_reference"
 
-        return False
+        for prefix in FOLLOW_UP_PREFIXES:
+            if self._starts_with_phrase(query_lower, prefix):
+                return True, f"continuation_phrase:{prefix}"
 
-    def _rewrite_with_llm(
+        if len(query_lower.split()) <= 6:
+            for prefix in SHORT_DEPENDENT_PREFIXES:
+                if self._starts_with_phrase(query_lower, prefix):
+                    return True, f"short_dependent_question:{prefix}"
+
+        return False, "standalone"
+
+    def _build_messages(
         self,
         query: str,
         history: list[dict],
-    ) -> str:
-        """
-        Rewrite the query into a standalone
-        search query using conversation history.
-        """
-
+    ) -> list[dict]:
+        selected_history = self._select_history(history)
         conversation = []
 
-        for message in history:
-
+        for message in selected_history:
             role = message["role"].capitalize()
+            content = message["content"]
 
-            content = message["content"].strip()
+            if role == "Assistant" and len(content) > MAX_ASSISTANT_CHARS:
+                content = content[:MAX_ASSISTANT_CHARS].rstrip() + "..."
 
-            if (
-                message["role"] == "assistant"
-                and len(content) > MAX_ASSISTANT_CHARS
-            ):
-                content = content[:MAX_ASSISTANT_CHARS] + "..."
+            conversation.append(f"{role}: {content}")
 
-            conversation.append(
-                f"{role}: {content}"
-            )
+        history_block = "\n".join(conversation) if conversation else "(empty)"
 
-            conversation.append(
-                f"{role}: {message['content']}"
-            )
-
-        messages = [
+        return [
             {
                 "role": "system",
-                "content": QUERY_RESOLVER_SYSTEM_PROMPT_V2,
+                "content": QUERY_RESOLVER_SYSTEM_PROMPT_V3,
             },
             {
                 "role": "user",
                 "content": (
                     "Previous Conversation:\n\n"
-                    + "\n".join(conversation)
-                    + "\n\n"
+                    f"{history_block}\n\n"
                     "Latest User Question:\n"
-                    + query
+                    f"{self._normalize_text(query)}"
                 ),
             },
         ]
 
-        rewritten, _ = get_llm().generate(
-            messages,
-            temperature=0.0,
-            max_tokens=128,
+    def _rewrite_with_llm(
+        self,
+        query: str,
+        history: list[dict],
+    ) -> dict:
+        """
+        Rewrite the query into a standalone search query using conversation history.
+        """
+
+        messages = self._build_messages(
+            query=query,
+            history=history,
         )
 
-        return rewritten.strip()
+        logger.debug(
+            "QueryResolver prompt: %s",
+            json.dumps(
+                {"messages": messages},
+                ensure_ascii=False,
+                default=str,
+            ),
+        )
+
+        provider = get_llm()
+
+        finish_reason = None
+
+        if hasattr(provider, "generate_with_metadata"):
+            rewritten, tokens, metadata = provider.generate_with_metadata(
+                messages,
+                temperature=0.0,
+                max_tokens=160,
+            )
+
+            if isinstance(metadata, dict):
+                finish_reason = metadata.get("finish_reason")
+        else:
+            rewritten, tokens = provider.generate(
+                messages,
+                temperature=0.0,
+                max_tokens=160,
+            )
+
+        rewritten_text = self._normalize_text(rewritten)
+
+        logger.debug(
+            "QueryResolver raw LLM output: %s",
+            json.dumps(
+                {
+                    "raw_output": rewritten_text,
+                    "finish_reason": finish_reason,
+                    "tokens": tokens,
+                },
+                ensure_ascii=False,
+                default=str,
+            ),
+        )
+
+        return {
+            "messages": messages,
+            "raw_output": rewritten_text,
+            "finish_reason": finish_reason,
+            "tokens": tokens,
+        }
 
     def _is_valid_rewrite(
         self,
         original_query: str,
         rewritten_query: str,
-    ) -> bool:
+    ) -> tuple[bool, str]:
         """
-        Validate the rewritten query before
-        allowing it into the retrieval pipeline.
+        Validate the rewritten query before allowing it into the retrieval pipeline.
         """
 
-        if not rewritten_query:
-            return False
+        candidate = self._normalize_text(rewritten_query)
 
-        if len(rewritten_query) > 200:
-            return False
+        if not candidate:
+            return False, "empty_rewrite"
 
-        if rewritten_query.endswith("."):
-            return False
+        if len(candidate) > MAX_REWRITE_CHARS:
+            return False, "rewrite_too_long"
 
-        if self.ANSWER_PATTERN.search(rewritten_query):
-            return False
+        if MULTILINE_OR_MARKUP_PATTERN.search(candidate):
+            return False, "contains_multiline_or_markup"
 
-        if rewritten_query.lower() == original_query.lower():
-            return False
+        if candidate.startswith("{") or candidate.startswith("["):
+            return False, "looks_like_json"
 
-        return True
+        if REFUSAL_PATTERN.match(candidate):
+            return False, "model_refusal"
+
+        if self._comparison_key(candidate) == self._comparison_key(original_query):
+            return False, "same_as_original"
+
+        return True, "accepted"
+
+    def _finalize_rewrite(self, rewritten_query: str) -> str:
+        candidate = self._normalize_text(rewritten_query)
+
+        if not candidate:
+            return candidate
+
+        if candidate[-1] not in {"?", "!"}:
+            candidate = candidate.rstrip(".") + "?"
+
+        return candidate
 
     def resolve(
         self,
@@ -181,34 +313,118 @@ class QueryResolver:
         history: list[dict],
     ) -> str:
         """
-        Return a standalone query suitable
-        for retrieval.
+        Return a standalone query suitable for retrieval.
         """
 
-        if not self._needs_resolution(
+        needs_resolution, decision_reason = self._resolution_decision(
             query,
             history,
-        ):
+        )
+
+        logger.debug(
+            "QueryResolver decision: %s",
+            json.dumps(
+                {
+                    "original_query": self._normalize_text(query),
+                    "history_used": self._select_history(history),
+                    "needs_resolution": needs_resolution,
+                    "decision_reason": decision_reason,
+                },
+                ensure_ascii=False,
+                default=str,
+            ),
+        )
+
+        if not needs_resolution:
+            final_query = self._normalize_text(query)
+
+            logger.debug(
+                "QueryResolver final output: %s",
+                json.dumps(
+                    {
+                        "final_resolved_query": final_query,
+                        "source": "original_query",
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            )
+
             return query
 
         try:
-
-            rewritten = self._rewrite_with_llm(
+            rewrite_attempt = self._rewrite_with_llm(
                 query,
                 history,
             )
 
-            if self._is_valid_rewrite(
+            is_valid, validation_reason = self._is_valid_rewrite(
                 query,
-                rewritten,
-            ):
-                return rewritten
+                rewrite_attempt["raw_output"],
+            )
 
-        except Exception:
-            #
-            # Never block retrieval because
-            # of query rewriting.
-            #
-            pass
+            if is_valid:
+                final_query = self._finalize_rewrite(
+                    rewrite_attempt["raw_output"],
+                )
+
+                logger.debug(
+                    "QueryResolver validation: %s",
+                    json.dumps(
+                        {
+                            "raw_llm_output": rewrite_attempt["raw_output"],
+                            "finish_reason": rewrite_attempt["finish_reason"],
+                            "validation_result": is_valid,
+                            "validation_reason": validation_reason,
+                            "final_resolved_query": final_query,
+                        },
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                )
+
+                logger.debug(
+                    "QueryResolver final output: %s",
+                    json.dumps(
+                        {
+                            "final_resolved_query": final_query,
+                            "source": "rewritten_query",
+                        },
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                )
+
+                return final_query
+
+            logger.debug(
+                "QueryResolver validation: %s",
+                json.dumps(
+                    {
+                        "raw_llm_output": rewrite_attempt["raw_output"],
+                        "finish_reason": rewrite_attempt["finish_reason"],
+                        "validation_result": is_valid,
+                        "validation_reason": validation_reason,
+                        "final_resolved_query": self._normalize_text(query),
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            )
+
+        except Exception as exc:
+            logger.debug(
+                "QueryResolver error: %s",
+                json.dumps(
+                    {
+                        "error": str(exc),
+                        "original_query": self._normalize_text(query),
+                        "final_resolved_query": self._normalize_text(query),
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+                exc_info=True,
+            )
 
         return query

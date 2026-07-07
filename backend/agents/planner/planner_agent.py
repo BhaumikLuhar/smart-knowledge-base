@@ -237,8 +237,8 @@ class PlannerAgent(Agent):
             {
                 "agent_name": self.name,
                 "input_summary": (
-                    f"query={state['query'][:40]} | "
-                    f"resolved={state['resolved_query'][:40]}"
+                    f"query={state['query'][:200]} | "
+                    f"resolved={state['resolved_query'][:200]}"
                 ),
                 "output_summary": (
                     f"strategy={state['retrieval_strategy']}, "
