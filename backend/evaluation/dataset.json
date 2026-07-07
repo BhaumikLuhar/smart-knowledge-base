@@ -1,0 +1,166 @@
+[
+  {
+    "question": "How many annual leave days do employees receive each year?",
+    "department_scope": "hr",
+    "evaluation_department": "hr",
+    "expected_source_doc": "hr_employee_handbook_updates.docx",
+    "expected_keywords": ["20", "annual leave", "accrued monthly"],
+    "adversarial": false
+  },
+  {
+    "question": "How much parental leave is available for primary caregivers?",
+    "department_scope": "hr",
+    "evaluation_department": "hr",
+    "expected_source_doc": "hr_employee_handbook_updates.docx",
+    "expected_keywords": ["16 weeks", "primary caregivers", "paid leave"],
+    "adversarial": false
+  },
+  {
+    "question": "How many remote work days are employees allowed each week?",
+    "department_scope": "hr",
+    "evaluation_department": "hr",
+    "expected_source_doc": "hr_employee_handbook_updates.docx",
+    "expected_keywords": ["3 days", "manager approval", "core hours"],
+    "adversarial": false
+  },
+  {
+    "question": "Describe the company performance review process.",
+    "department_scope": "hr",
+    "evaluation_department": "hr",
+    "expected_source_doc": "hr_employee_handbook_updates.docx",
+    "expected_keywords": ["bi-annually", "self-assessment", "five competencies"],
+    "adversarial": false
+  },
+  {
+    "question": "What is the 2026 hiring target?",
+    "department_scope": "hr",
+    "evaluation_department": "hr",
+    "expected_source_doc": "hr_recruitment_strategy_2026.txt",
+    "expected_keywords": ["55", "new hires", "2026"],
+    "adversarial": false
+  },
+  {
+    "question": "What interview stages are used during recruitment?",
+    "department_scope": "hr",
+    "evaluation_department": "hr",
+    "expected_source_doc": "hr_recruitment_strategy_2026.txt",
+    "expected_keywords": ["Recruiter Screen", "Hiring Manager", "Technical", "Executive"],
+    "adversarial": false
+  },
+  {
+    "question": "What are the diversity hiring goals for 2026?",
+    "department_scope": "hr",
+    "evaluation_department": "hr",
+    "expected_source_doc": "hr_recruitment_strategy_2026.txt",
+    "expected_keywords": ["women", "35%", "underrepresented", "leadership"],
+    "adversarial": false
+  },
+
+  {
+    "question": "Describe the engineering deployment pipeline.",
+    "department_scope": "engineering",
+    "evaluation_department": "engineering",
+    "expected_source_doc": "engineering_architecture_standards.txt",
+    "expected_keywords": ["CI", "staging", "blue-green deployment", "smoke tests"],
+    "adversarial": false
+  },
+  {
+    "question": "What responsibilities does the API Gateway perform?",
+    "department_scope": "engineering",
+    "evaluation_department": "engineering",
+    "expected_source_doc": "engineering_architecture_standards.txt",
+    "expected_keywords": ["JWT", "rate limiting", "SSL", "load balancing"],
+    "adversarial": false
+  },
+  {
+    "question": "How should database migrations be performed?",
+    "department_scope": "engineering",
+    "evaluation_department": "engineering",
+    "expected_source_doc": "engineering_architecture_standards.txt",
+    "expected_keywords": ["Flyway", "Liquibase", "rollback", "backup"],
+    "adversarial": false
+  },
+  {
+    "question": "What infrastructure upgrades are planned for Q3?",
+    "department_scope": "engineering",
+    "evaluation_department": "engineering",
+    "expected_source_doc": "engineering_release_plan_q3.md",
+    "expected_keywords": ["Kubernetes", "PostgreSQL", "Redis", "Elasticsearch"],
+    "adversarial": false
+  },
+  {
+    "question": "Which technical debt items are planned?",
+    "department_scope": "engineering",
+    "evaluation_department": "engineering",
+    "expected_source_doc": "engineering_release_plan_q3.md",
+    "expected_keywords": ["JWT", "PgBouncer", "API", "coverage"],
+    "adversarial": false
+  },
+  {
+    "question": "What performance improvement initiatives are planned?",
+    "department_scope": "engineering",
+    "evaluation_department": "engineering",
+    "expected_source_doc": "engineering_release_plan_q3.md",
+    "expected_keywords": ["Redis", "CDN", "background workers", "slow queries"],
+    "adversarial": false
+  },
+
+  {
+    "question": "Explain the disaster recovery process.",
+    "department_scope": "operations",
+    "evaluation_department": "operations",
+    "expected_source_doc": "operations_business_continuity_plan.md",
+    "expected_keywords": ["incident", "BCP", "recovery", "restore"],
+    "adversarial": false
+  },
+  {
+    "question": "What are the production database recovery objectives?",
+    "department_scope": "operations",
+    "evaluation_department": "operations",
+    "expected_source_doc": "operations_business_continuity_plan.md",
+    "expected_keywords": ["1 hour", "15 minutes", "RTO", "RPO"],
+    "adversarial": false
+  },
+  {
+    "question": "Describe the procurement workflow for purchases over $50000.",
+    "department_scope": "operations",
+    "evaluation_department": "operations",
+    "expected_source_doc": "operations_supply_chain_report.txt",
+    "expected_keywords": ["RFP", "3 bids", "Legal", "CFO approval"],
+    "adversarial": false
+  },
+
+  {
+    "question": "What is the company's mission?",
+    "department_scope": "public",
+    "evaluation_department": "engineering",
+    "expected_source_doc": "public_company_overview.md",
+    "expected_keywords": ["operations team", "automating", "work smarter"],
+    "adversarial": false
+  },
+  {
+    "question": "Is a free trial available for customers?",
+    "department_scope": "public",
+    "evaluation_department": "hr",
+    "expected_source_doc": "public_customer_faq.pdf",
+    "expected_keywords": ["14-day", "Growth plan", "credit card"],
+    "adversarial": false
+  },
+
+  {
+    "question": "Explain the restricted salary adjustment policy.",
+    "department_scope": "hr",
+    "evaluation_department": "engineering",
+    "expected_source_doc": "hr_restricted_policy.pdf",
+    "expected_keywords": ["salary", "merit", "bonus", "confidential"],
+    "adversarial": true
+  },
+  {
+    "question": "Who can access confidential HR compensation policies?",
+    "department_scope": "hr",
+    "evaluation_department": "operations",
+    "expected_source_doc": "hr_restricted_policy.pdf",
+    "expected_keywords": ["HR administrators", "restricted", "confidential"],
+    "adversarial": true
+  }
+]

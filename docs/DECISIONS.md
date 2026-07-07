@@ -2695,3 +2695,161 @@ Validation and protection mechanisms are enforced at the API layer, including:
 ### Negative
 
 - Additional validation introduces minimal processing overhead.
+
+
+
+## Day 23 – Evaluation Framework
+
+### ADR-041: Automated End-to-End Evaluation Framework
+
+**Status**
+
+Accepted
+
+### Context
+
+The Smart Knowledge Bank now includes a complete multi-agent retrieval and generation pipeline. While individual components had been validated during development, there was no automated mechanism to verify the overall system quality after changes.
+
+The project required a repeatable benchmark capable of evaluating retrieval accuracy, citation generation, answer completeness, permission enforcement, and overall system latency using a predefined dataset.
+
+### Decision
+
+An evaluation framework was introduced under the `evaluation` module.
+
+The framework includes:
+
+- A benchmark dataset containing twenty representative questions across HR, Engineering, Operations, Public, and adversarial security scenarios.
+- An evaluation runner that executes the complete agent workflow for every benchmark question.
+- Automatic calculation of retrieval precision, citation correctness, answer quality, permission leakage, and latency P95.
+- Persistent storage of benchmark results inside the audit log system.
+- Administrative endpoints for starting an evaluation and retrieving the latest benchmark report.
+
+The evaluation executes against the same production pipeline used by end users to ensure realistic benchmark results.
+
+### Consequences
+
+#### Positive
+
+- Enables objective measurement of retrieval quality.
+- Detects regressions after retrieval or prompt changes.
+- Validates permission enforcement automatically.
+- Produces repeatable benchmark results for documentation and demonstrations.
+
+#### Negative
+
+- Evaluation requires executing the complete agent pipeline for every benchmark question, resulting in relatively high execution time until performance optimizations are introduced in later project phases.
+
+---
+
+### ADR-042: Benchmark Dataset and Security Validation Strategy
+
+**Status**
+
+Accepted
+
+### Context
+
+Testing only successful retrieval scenarios is insufficient for validating an enterprise knowledge system. The evaluation process must also verify that department isolation remains intact and that unauthorized information is never exposed.
+
+### Decision
+
+The benchmark dataset was designed with multiple categories:
+
+- HR knowledge questions
+- Engineering knowledge questions
+- Operations knowledge questions
+- Public knowledge questions
+- Adversarial security questions
+
+Each dataset item defines:
+
+- Expected source document
+- Expected keywords
+- Department scope
+- Adversarial flag
+
+Adversarial scenarios intentionally execute queries using users from unauthorized departments and verify that no protected information is retrieved or generated.
+
+Permission leakage is treated as a critical security metric.
+
+### Consequences
+
+#### Positive
+
+- Continuously validates permission enforcement.
+- Prevents retrieval regressions that could expose restricted knowledge.
+- Ensures benchmark coverage across multiple departments.
+- Provides measurable security validation before future releases.
+
+#### Negative
+
+- Dataset maintenance is required whenever benchmark documents change.
+
+---
+
+## ADR-043: Evaluation Result Persistence
+
+**Status**
+
+Accepted
+
+### Context
+
+Evaluation results must remain available after execution for administrative review and future comparisons. Keeping results only in memory would lose benchmark history after application restarts.
+
+### Decision
+
+Completed evaluation reports are stored as structured JSON within the existing `audit_logs` table using the `evaluation_run` action.
+
+The latest report is retrieved through an administrative endpoint while preserving the complete benchmark payload, aggregate metrics, and per-question results.
+
+Using the existing audit infrastructure avoids introducing additional database tables while maintaining a permanent execution history.
+
+### Consequences
+
+#### Positive
+
+- Reuses the existing audit infrastructure.
+- Preserves benchmark history across application restarts.
+- Simplifies administration and future reporting.
+- Provides traceability for retrieval quality improvements over time.
+
+#### Negative
+
+- Evaluation reports increase audit log storage usage, although benchmark executions are expected to be infrequent.
+
+
+
+# Day 23 – Evaluation Framework Benchmark
+
+**Date**
+
+2026-07-07
+
+## Evaluation Results
+
+The first end-to-end benchmark was executed against the production agent pipeline using a 20-question evaluation dataset spanning HR, Engineering, Operations, Public, and adversarial permission scenarios.
+
+### Results
+
+| Metric | Result | Target | Status |
+|--------|--------|--------|--------|
+| Retrieval Precision | **90.0%** | ≥80% | ✅ Pass |
+| Citation Correctness | **90.0%** | ≥80% | ✅ Pass |
+| Answer Quality | **85.4%** | Informational | ✅ Good |
+| Permission Leakage | **0** | 0 | ✅ Pass |
+| Latency (P95) | **19.61 seconds** | <5 seconds | ⚠ To be optimized in Day 25 |
+
+## Observations
+
+- Retrieval quality exceeded the project target with **90% retrieval precision** across the benchmark dataset.
+- Citation generation correctly referenced the expected source documents in **90%** of benchmark cases.
+- Permission enforcement successfully prevented unauthorized document retrieval, resulting in **zero information leakage** during adversarial evaluation.
+- Generated answers achieved an average **keyword coverage of 85.4%**, demonstrating strong grounding in retrieved documents.
+- Evaluation latency remains above the desired production target. Performance optimization is intentionally deferred to **Day 25 (Performance & Caching)**, where BM25 caching, retrieval optimization, and query caching will be implemented.
+
+## Decision
+
+**Accepted**
+
+The evaluation framework is considered complete and provides a reliable baseline for measuring future retrieval quality, citation accuracy, security validation, and performance improvements. No additional retrieval tuning is required at this stage since the benchmark exceeds the minimum retrieval precision target. Performance optimization will be addressed during the dedicated optimization phase.

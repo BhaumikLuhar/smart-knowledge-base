@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from evaluation.schemas import EvaluationReport
+
 
 class AuditLogEntry(BaseModel):
     """
@@ -136,3 +138,17 @@ class SystemConfigResponse(BaseModel):
     max_sessions: int
 
 
+
+
+class EvaluationRunResponse(BaseModel):
+
+    job_id: str
+
+    status: str
+
+
+class EvaluationResultsResponse(BaseModel):
+
+    status: str
+
+    results: EvaluationReport | None

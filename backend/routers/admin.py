@@ -56,6 +56,12 @@ from core.admin.schemas import (
     AuditLogEntry,
     DashboardSummaryResponse,
     SystemConfigResponse,
+    EvaluationRunResponse,
+    EvaluationResultsResponse,
+)
+
+from evaluation.service import (
+    EvaluationService
 )
 
 from fastapi import HTTPException
@@ -461,3 +467,62 @@ async def get_system_config(
     )
 
     return await service.get_system_config()
+
+
+
+async def run_evaluation_background(
+    service: EvaluationService,
+):
+
+    await service.run()
+
+
+@router.post(
+    "/evaluation/run",
+    response_model=EvaluationRunResponse,
+)
+async def run_system_evaluation(
+    current_user: UserContext = Depends(
+        require_admin,
+    ),
+    sql_store: SQLStore = Depends(
+        get_sql_store,
+    ),
+):
+
+    service = EvaluationService(
+        sql_store
+    )
+
+    job_id = service.start_job()
+
+    return EvaluationRunResponse(
+        job_id=job_id,
+        status="running",
+    )
+
+@router.get(
+    "/evaluation/results",
+    response_model=EvaluationResultsResponse,
+)
+async def latest_evaluation_results(
+    current_user: UserContext = Depends(
+        require_admin,
+    ),
+    sql_store: SQLStore = Depends(
+        get_sql_store,
+    ),
+):
+
+    service = EvaluationService(
+        sql_store
+    )
+
+    report = await service.get_latest_report()
+
+    status = service.get_status()
+
+    return EvaluationResultsResponse(
+        status=status["status"],
+        results=report,
+    )
