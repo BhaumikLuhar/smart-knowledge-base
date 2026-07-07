@@ -49,12 +49,82 @@ class RecentQuerySummary(BaseModel):
     confidence: str
 
 
+class DepartmentQueryBreakdown(BaseModel):
+    """
+    Query volume grouped by department.
+    """
+
+    department: str
+
+    query_count: int
+
+    percentage: float
+
+
+class HourlyQueryBucket(BaseModel):
+    """
+    Number of chat queries for each hour
+    of the current day.
+    """
+
+    hour: int
+
+    query_count: int
+
+
 class DashboardSummaryResponse(BaseModel):
+    """
+    Complete dashboard summary returned to
+    the admin observability dashboard.
+    """
+
+    #
+    # Usage metrics
+    #
     total_queries_today: int
+
+    today_errors: int
+
     average_latency_ms: int
-    active_users: int
+
+    average_tokens: int
+
+    #
+    # Knowledge Base
+    #
+    total_documents: int
+
     documents_ready: int
-    recent_queries: list[RecentQuerySummary]
+
+    #
+    # User activity
+    #
+    active_users: int
+
+    permission_denials_today: int
+
+    #
+    # Retrieval quality
+    #
+    retrieval_precision_avg: float
+
+    #
+    # Dashboard visualizations
+    #
+    department_breakdown: list[
+        DepartmentQueryBreakdown
+    ] = Field(default_factory=list)
+
+    hourly_query_volume: list[
+        HourlyQueryBucket
+    ] = Field(default_factory=list)
+
+    #
+    # Recent activity
+    #
+    recent_queries: list[
+        RecentQuerySummary
+    ] = Field(default_factory=list)
 
 
 
@@ -64,3 +134,5 @@ class SystemConfigResponse(BaseModel):
     candidate_top_k: int
     final_top_k: int
     max_sessions: int
+
+

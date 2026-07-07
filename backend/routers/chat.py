@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi import Depends
 from uuid import UUID
+
+from core.security.rate_limiter import limiter
 
 from core.auth.dependencies import (
     get_current_user,
@@ -49,7 +51,9 @@ router = APIRouter(
     "/query",
     response_model=ChatQueryResponse,
 )
+@limiter.limit("20/minute")
 async def query(
+    request: Request,
     payload: ChatQueryRequest,
     sql_store: SQLStore = Depends(get_sql_store),
     current_user: UserContext = Depends(
@@ -69,7 +73,7 @@ async def query(
     - Stores conversation history
     - Records observability metrics
     """
-
+    
     service = ChatService(sql_store)
 
     return await service.query(

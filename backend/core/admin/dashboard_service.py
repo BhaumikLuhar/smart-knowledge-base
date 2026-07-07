@@ -3,6 +3,8 @@ from storage.sql.sql_store import SQLStore
 from core.admin.schemas import (
     RecentQuerySummary,
     DashboardSummaryResponse,
+    HourlyQueryBucket,
+    DepartmentQueryBreakdown,
 )
 
 from core.config import settings
@@ -23,47 +25,215 @@ class DashboardService:
         self,
     ) -> DashboardSummaryResponse:
 
-        total_queries = await self.sql_store.execute_raw(
-            """
-            SELECT COUNT(*) AS total
-            FROM metrics
-            WHERE
-                endpoint = '/api/v1/chat/query'
-                AND status = 'success'
-                AND created_at::date = CURRENT_DATE;
-            """
-        )
-
-        average_latency = await self.sql_store.execute_raw(
+        #
+        # Query 1
+        # Metrics aggregation
+        #
+        metrics = await self.sql_store.execute_raw(
             """
             SELECT
+
+                COUNT(*) FILTER (
+                    WHERE endpoint='/api/v1/chat/query'
+                    AND status='success'
+                    AND created_at::date=CURRENT_DATE
+                ) AS today_queries,
+
+                COUNT(*) FILTER (
+                    WHERE status='error'
+                    AND created_at::date=CURRENT_DATE
+                ) AS today_errors,
+
                 COALESCE(
-                    ROUND(AVG(latency)),
+                    ROUND(
+                        AVG(latency)
+                    ),
                     0
-                ) AS latency
-            FROM metrics
+                ) AS avg_latency,
+
+                COALESCE(
+                    ROUND(
+                        AVG(tokens)
+                    ),
+                    0
+                ) AS avg_tokens,
+
+                COUNT(
+                    DISTINCT user_id
+                ) FILTER (
+                    WHERE endpoint='/api/v1/chat/query'
+                    AND created_at::date=CURRENT_DATE
+                ) AS active_users
+
+            FROM metrics;
+            """
+        )
+
+        metrics = metrics[0]
+
+        #
+        # Query 2
+        # Documents
+        #
+        documents = await self.sql_store.execute_raw(
+            """
+            SELECT
+
+                COUNT(*) AS total_documents,
+
+                COUNT(*) FILTER (
+                    WHERE status='ready'
+                ) AS documents_ready
+
+            FROM documents;
+            """
+        )
+
+        documents = documents[0]
+
+        #
+        # Query 3
+        # Permission denials
+        #
+        permission_rows = await self.sql_store.execute_raw(
+            """
+            SELECT COUNT(*) AS total
+            FROM audit_logs
             WHERE
-                endpoint = '/api/v1/chat/query'
-                AND status = 'success';
+                action='permission_denied'
+                AND created_at::date=CURRENT_DATE;
             """
         )
 
-        active_users = await self.sql_store.execute_raw(
+        permission_denials = int(
+            permission_rows[0]["total"]
+        )
+
+        #
+        # Query 4a
+        # Department breakdown
+        #
+        department_rows = await self.sql_store.execute_raw(
             """
-            SELECT COUNT(*) AS total
-            FROM users
-            WHERE is_active = TRUE;
+            SELECT
+
+                d.display_name AS department,
+
+                COUNT(*) AS query_count
+
+            FROM audit_logs a
+
+            JOIN users u
+                ON u.id = a.user_id
+
+            JOIN departments d
+                ON d.id = u.department_id
+
+            WHERE
+                a.action='query'
+                AND a.resource_type='chat'
+                AND a.created_at::date=CURRENT_DATE
+
+            GROUP BY
+                d.display_name
+
+            ORDER BY
+                query_count DESC;
             """
         )
 
-        documents_ready = await self.sql_store.execute_raw(
+        total_queries = max(
+            int(metrics["today_queries"]),
+            1,
+        )
+
+        department_breakdown = []
+
+        for row in department_rows:
+
+            department_breakdown.append(
+
+                DepartmentQueryBreakdown(
+
+                    department=row["department"],
+
+                    query_count=int(
+                        row["query_count"]
+                    ),
+
+                    percentage=round(
+                        (
+                            int(row["query_count"])
+                            / total_queries
+                        )
+                        * 100,
+                        1,
+                    ),
+                )
+            )
+
+        #
+        # Query 4b
+        # Hourly volume
+        #
+        hourly_rows = await self.sql_store.execute_raw(
             """
-            SELECT COUNT(*) AS total
-            FROM documents
-            WHERE status = 'ready';
+            SELECT
+
+                EXTRACT(
+                    HOUR
+                    FROM created_at
+                )::INT AS hour,
+
+                COUNT(*) AS query_count
+
+            FROM audit_logs
+
+            WHERE
+                action='query'
+                AND created_at::date=CURRENT_DATE
+
+            GROUP BY hour
+
+            ORDER BY hour;
             """
         )
 
+        hourly_volume = []
+
+        for row in hourly_rows:
+
+            hourly_volume.append(
+
+                HourlyQueryBucket(
+
+                    hour=row["hour"],
+
+                    query_count=int(
+                        row["query_count"]
+                    ),
+
+                )
+
+            )
+
+        hour_counts = {
+            int(row["hour"]): int(row["query_count"])
+            for row in hourly_rows
+        }
+
+        hourly_volume = [
+            HourlyQueryBucket(
+                hour=hour,
+                query_count=hour_counts.get(hour, 0),
+            )
+            for hour in range(24)
+        ]
+
+        #
+        # Query 4c
+        # Recent queries
+        #
         rows = await self.sql_store.execute_raw(
             """
             SELECT
@@ -85,11 +255,14 @@ class DashboardService:
             FROM audit_logs a
 
             LEFT JOIN users u
-                ON u.id = a.user_id
+                ON u.id=a.user_id
 
-            WHERE a.action = 'query' AND a.resource_type = 'chat'
+            WHERE
+                a.action='query'
+                AND a.resource_type='chat'
 
-            ORDER BY a.created_at DESC
+            ORDER BY
+                a.created_at DESC
 
             LIMIT 10;
             """
@@ -98,29 +271,70 @@ class DashboardService:
         recent_queries = []
 
         for row in rows:
+
             recent_queries.append(
+
                 RecentQuerySummary(
-                    user=row["full_name"] or "Unknown",
+
+                    user=row["full_name"]
+                    or "Unknown",
+
                     query=row["query"],
+
                     timestamp=row["created_at"],
+
                     confidence=row["confidence"],
+
                 )
+
             )
 
+        #
+        # Day 23
+        # Placeholder until evaluation framework
+        #
+        retrieval_precision = 0.0
+
         return DashboardSummaryResponse(
+
             total_queries_today=int(
-                total_queries[0]["total"]
+                metrics["today_queries"]
             ),
+
+            today_errors=int(
+                metrics["today_errors"]
+            ),
+
             average_latency_ms=int(
-                average_latency[0]["latency"] or 0
+                metrics["avg_latency"]
             ),
-            active_users=int(
-                active_users[0]["total"]
+
+            average_tokens=int(
+                metrics["avg_tokens"]
             ),
+
+            total_documents=int(
+                documents["total_documents"]
+            ),
+
             documents_ready=int(
-                documents_ready[0]["total"]
+                documents["documents_ready"]
             ),
+
+            active_users=int(
+                metrics["active_users"]
+            ),
+
+            permission_denials_today=permission_denials,
+
+            retrieval_precision_avg=retrieval_precision,
+
+            department_breakdown=department_breakdown,
+
+            hourly_query_volume=hourly_volume,
+
             recent_queries=recent_queries,
+
         )
     
 

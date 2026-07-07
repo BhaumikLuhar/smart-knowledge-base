@@ -2604,3 +2604,94 @@ The resolver continues returning a single standalone query while remaining fully
 
 - Additional prompt complexity slightly increases LLM token usage.
 - Some highly ambiguous conversations may still require fallback to the original query.
+
+
+## Day 22
+## ADR-043: Centralized Metrics Aggregation Endpoint
+
+**Status**
+
+Accepted
+
+### Context
+
+The admin dashboard requires multiple operational metrics, including query volume, latency, active users, document readiness, and department usage. Fetching each metric through separate API requests would increase database load and dashboard latency.
+
+### Decision
+
+A dedicated `GET /api/v1/admin/metrics/summary` endpoint aggregates all required dashboard statistics using a small number of SQL aggregation queries. The service computes counts, averages, and grouped metrics server-side before returning a single response object to the frontend.
+
+### Consequences
+
+### Positive
+
+- Single API call powers the entire dashboard.
+- Reduced frontend complexity.
+- Lower database round trips.
+- Consistent snapshot of operational metrics.
+
+### Negative
+
+- Aggregation queries become more complex.
+- Future metrics require updates to the aggregation service.
+
+---
+
+## ADR-044: Audit Log–Driven Analytics
+
+**Status**
+
+Accepted
+
+### Context
+
+Dashboard analytics such as today's queries, department usage, recent activity, and permission denials require a reliable source of operational data without introducing duplicate tracking tables.
+
+### Decision
+
+The dashboard derives analytics directly from the existing `audit_logs` table. Metrics are generated using SQL aggregation (`COUNT`, `AVG`, `GROUP BY`, and date filtering), while duplicate query events are prevented by recording a single query audit event per completed user request.
+
+### Consequences
+
+### Positive
+
+- Single source of truth for operational reporting.
+- Eliminates duplicated analytics storage.
+- Dashboard automatically reflects real system activity.
+
+### Negative
+
+- Analytics quality depends on accurate audit logging.
+- Schema changes to audit events may require query updates.
+
+---
+
+## ADR-045: Backend Validation for Dashboard Integrity
+
+**Status**
+
+Accepted
+
+### Context
+
+Administrative metrics should represent valid system activity. Invalid requests or excessive traffic must not distort analytics or degrade service quality.
+
+### Decision
+
+Validation and protection mechanisms are enforced at the API layer, including:
+
+- Request length validation.
+- Endpoint rate limiting.
+- Sanitized aggregation logic before metrics are returned to the dashboard.
+
+### Consequences
+
+### Positive
+
+- Prevents invalid data from polluting dashboard metrics.
+- Improves platform stability.
+- Aligns operational reporting with actual successful usage.
+
+### Negative
+
+- Additional validation introduces minimal processing overhead.

@@ -21,6 +21,12 @@ from core.generation.llm_provider import GroqProvider
 
 from agents.workflow import AgentWorkflow
 
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from fastapi.responses import JSONResponse
+
+from core.security.rate_limiter import limiter
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -87,6 +93,12 @@ app=FastAPI(
     lifespan=lifespan
 )
 
+app.state.limiter = limiter
+
+app.add_middleware(
+    SlowAPIMiddleware
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -101,6 +113,24 @@ async def health():
         "status": "ok",
         "version": "1.0"
     }
+
+
+@app.exception_handler(
+    RateLimitExceeded
+)
+async def rate_limit_handler(
+    request,
+    exc,
+):
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": (
+                "Rate limit exceeded. "
+                "Please wait before sending more messages."
+            )
+        },
+    )
 
 app.include_router(admin_router)
 app.include_router(auth_router)

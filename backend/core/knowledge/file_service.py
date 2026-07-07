@@ -15,22 +15,38 @@ class FileService:
     """
 
     @staticmethod
-    def sanitize_filename(filename: str)->str:
+    def sanitize_filename(filename: str) -> str:
         """
         Convert unsafe filenames into safe ones.
 
+        Removes any directory traversal attempts
+        before sanitizing the filename.
+
         Example:
-        My HR Policy (Final).pdf
-        ->
-        My_HR_Policy_Final.pdf
+            ../../../etc/passwd.pdf
+            ->
+            passwd.pdf
+
+            My HR Policy (Final).pdf
+            ->
+            My_HR_Policy_Final.pdf
         """
 
-        filename=filename.strip().replace(" ","_")
+        #
+        # Keep only the actual filename.
+        #
+        filename = Path(filename).name
 
-        filename=re.sub(r"[^a-zA-Z0-9._-]","",filename)
+        filename = filename.strip().replace(" ", "_")
+
+        filename = re.sub(
+            r"[^a-zA-Z0-9._-]",
+            "",
+            filename,
+        )
 
         return filename
-    
+        
 
     @staticmethod
     async def validate_extension(uploaded_file: UploadFile)->str:

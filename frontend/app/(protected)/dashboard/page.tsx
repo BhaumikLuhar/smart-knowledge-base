@@ -8,6 +8,11 @@ import LoadingState from "@/components/common/loading-state";
 import ErrorCard from "@/components/common/error-card";
 import EmptyState from "@/components/common/empty-state";
 import { getDashboardSummary } from "@/services/dashboard-service";
+import DepartmentBreakdownTable
+  from "@/components/dashboard/department-breakdown";
+
+import QueryVolumeChart
+  from "@/components/dashboard/query-volume-chart";
 
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -140,7 +145,13 @@ export default function DashboardPage() {
 
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <QueryVolumeChart
+        data={
+          summary.hourly_query_volume
+        }
+      />
+
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-5">
 
         <StatCard
           title="Total Queries Today"
@@ -168,7 +179,19 @@ export default function DashboardPage() {
           }
         />
 
+        <StatCard
+          title="Permission Denials"
+          value={summary.permission_denials_today}
+          subtitle="Today"
+        />
+
       </div>
+
+      <DepartmentBreakdownTable
+        departments={
+          summary.department_breakdown
+        }
+      />
 
       <RecentQueryTable
         queries={
