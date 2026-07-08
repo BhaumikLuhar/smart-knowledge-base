@@ -53,7 +53,6 @@ from core.admin.dashboard_service import (
 
 from core.admin.schemas import (
     AuditLogResponse,
-    AuditLogEntry,
     DashboardSummaryResponse,
     SystemConfigResponse,
     EvaluationRunResponse,
@@ -63,8 +62,6 @@ from core.admin.schemas import (
 from evaluation.service import (
     EvaluationService
 )
-
-from fastapi import HTTPException
 
 from datetime import datetime
 

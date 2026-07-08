@@ -1,5 +1,3 @@
-import math
-
 from core.auth.user_context import UserContext
 from core.generation.citation_builder import build_citations
 from core.generation.llm_provider import get_llm

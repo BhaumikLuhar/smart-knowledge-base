@@ -14,7 +14,7 @@ from core.knowledge.loaders.txt_loader import TxtLoader
 LOADER_REGISTRY: dict[str, type[DocumentLoader]] = {}
 
 
-def register_loader(extension: str, loader_class: type[DocumentLoader]):
+def register_loader(extension: str, loader_class: type[DocumentLoader])-> None:
     """
     Register loader for extension.
     """

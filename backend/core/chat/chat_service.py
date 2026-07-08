@@ -147,8 +147,6 @@ class ChatService:
         state: dict,
     ) -> None:
 
-        print(">>> RECORDING CHAT AUDIT")
-
         await self.sql_store.save(
             "audit_logs",
             {
@@ -184,12 +182,6 @@ class ChatService:
             session_id=session_id,
             user_id=current_user.id,
         )
-
-        pipeline_result = {
-            "candidate_count": 0,
-            "authorized_count": 0,
-            "chunks": [],
-        }
 
         try:
             #

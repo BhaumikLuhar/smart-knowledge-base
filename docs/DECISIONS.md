@@ -2820,13 +2820,13 @@ Using the existing audit infrastructure avoids introducing additional database t
 
 
 
-# Day 23 – Evaluation Framework Benchmark
+## Day 23 – Evaluation Framework Benchmark
 
 **Date**
 
 2026-07-07
 
-## Evaluation Results
+### Evaluation Results
 
 The first end-to-end benchmark was executed against the production agent pipeline using a 20-question evaluation dataset spanning HR, Engineering, Operations, Public, and adversarial permission scenarios.
 
@@ -2853,3 +2853,143 @@ The first end-to-end benchmark was executed against the production agent pipelin
 **Accepted**
 
 The evaluation framework is considered complete and provides a reliable baseline for measuring future retrieval quality, citation accuracy, security validation, and performance improvements. No additional retrieval tuning is required at this stage since the benchmark exceeds the minimum retrieval precision target. Performance optimization will be addressed during the dedicated optimization phase.
+
+
+## Day 24
+### ADR-043: Registry-Based Extension Architecture
+
+**Status:** Accepted
+
+### Context
+
+As the Smart Knowledge Bank matured, multiple components became extension points:
+
+- Document loaders
+- Retrieval engines
+- Permission policies
+- Workflow agents
+- Tools
+
+Although each subsystem already supported multiple implementations, they were managed independently with inconsistent extension patterns. Adding a new implementation often required modifying workflow code or business services.
+
+The project required a consistent mechanism for registering and resolving implementations while keeping the core application closed for modification and open for extension.
+
+### Decision
+
+The application adopts a **registry-based extension architecture** for all major pluggable components.
+
+Five registries are maintained:
+
+- Loader Registry
+- Retriever Registry
+- Permission Policy Registry
+- Tool Registry
+- Agent Registry
+
+Each registry exposes a common pattern:
+
+```python
+register_xxx(...)
+get_xxx(...)
+```
+
+Where appropriate, controlled runtime injection is supported for testing and internal configuration.
+
+Business services interact only with registry interfaces and never instantiate concrete implementations directly.
+
+Examples include:
+
+```python
+register_loader(".pdf", PDFLoader)
+register_retriever("hybrid", HybridRetriever)
+register_permission_policy("department", DepartmentPermissionPolicy)
+register_tool("calculator", CalculatorTool)
+register_agent("planner", PlannerAgent)
+```
+
+The LangGraph workflow now resolves agent implementations through the Agent Registry instead of constructing concrete agent classes directly.
+
+### Consequences
+
+### Positive
+
+- Consistent extension mechanism across the project.
+- New implementations can be added without modifying existing business logic.
+- Supports future retrieval engines, permission models, workflow agents, and tools.
+- Simplifies testing through controlled implementation injection.
+- Better adherence to the Open/Closed Principle.
+
+### Negative
+
+- Slight increase in startup configuration.
+- Incorrect or missing registrations will surface during application initialization.
+
+### Alternatives Considered
+
+- Direct class instantiation inside services.
+- Factory classes for every subsystem.
+- Dynamic module discovery.
+
+Registry-based resolution was selected because it is explicit, lightweight, and aligns well with the existing architecture.
+
+---
+
+## ADR-044: Stable Versioned API Contract
+
+**Status:** Accepted
+
+### Context
+
+By Day 24, the Smart Knowledge Bank exposes endpoints across authentication, administration, chat, evaluation, metrics, and user management.
+
+As the platform evolves, clients require a stable API contract that can evolve without breaking existing integrations.
+
+### Decision
+
+All public endpoints are standardized under the versioned API prefix:
+
+```text
+/api/v1
+```
+
+The health endpoint is extended to expose API metadata:
+
+```json
+{
+  "status": "ok",
+  "version": "1.0",
+  "api_version": "v1",
+  "schema_version": "009"
+}
+```
+
+Comprehensive endpoint documentation is maintained in **API.md**, including:
+
+- HTTP method
+- Route
+- Authentication requirements
+- Request format
+- Response format
+- Functional description
+
+Administrative APIs remain protected through role-based authorization.
+
+### Consequences
+
+### Positive
+
+- Stable API contract for frontend and external clients.
+- Future API versions can coexist without breaking existing consumers.
+- Improved operational visibility through version-aware health checks.
+- Centralized API documentation.
+
+### Negative
+
+- Future API changes require explicit version management.
+
+### Alternatives Considered
+
+- Unversioned REST endpoints.
+- Header-based API versioning.
+
+URL-based versioning was selected because it is explicit, widely adopted, and simple for both frontend and backend routing.

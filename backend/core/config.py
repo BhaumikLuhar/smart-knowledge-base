@@ -1,6 +1,5 @@
 from pathlib import Path
 from dotenv import load_dotenv
-import os
 from pydantic_settings import BaseSettings,SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -51,6 +50,12 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 480
 
+    #
+    # API
+    #
+    API_VERSION: str = "v1"
+    SCHEMA_VERSION: str = "009"
+
     model_config = SettingsConfigDict(
         env_file="../.env",
         case_sensitive=True
@@ -58,27 +63,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-
-# from pathlib import Path
-# from dotenv import load_dotenv
-# import os
-# from pydantic_settings import BaseSettings
-
-# ROOT = Path(__file__).resolve().parents[2]
-
-# # Force load .env and overwrite existing env vars
-# load_dotenv(ROOT / ".env", override=True)
-
-# print("OS DATABASE_URL =", os.getenv("DATABASE_URL"))
-
-
-# class Settings(BaseSettings):
-#     DATABASE_URL: str
-#     GROQ_API_KEY: str
-#     JWT_SECRET: str
-
-
-# settings = Settings()
-
-# print("SETTINGS DATABASE_URL =", settings.DATABASE_URL)

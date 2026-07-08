@@ -866,3 +866,193 @@ Shared UI behaviors include:
 - Reusable UI primitives
 
 Pages remain focused on business logic while presentation concerns are shared through reusable components.
+
+---
+
+# Registry Extension System
+
+The Smart Knowledge Bank uses registry-based extension points to keep major subsystems open for extension while avoiding modifications to existing business logic.
+
+Each registry follows the same principle:
+
+- Register a new implementation
+- Retrieve the implementation through the registry
+- Business logic never depends on concrete classes
+
+This allows new capabilities to be added without modifying existing workflows.
+
+---
+
+## Loader Registry
+
+Location
+
+```
+core/knowledge/loaders/factory.py
+```
+
+Current implementation
+
+- PDFLoader
+- DocxLoader
+- TxtLoader
+- MarkdownLoader
+
+How to add a new loader
+
+1. Create a class inheriting `DocumentLoader`.
+2. Implement `load()` and `supported_extension()`.
+3. Register it:
+
+```python
+register_loader(".xlsx", ExcelLoader)
+```
+
+Do NOT change
+
+- KnowledgeService
+- IngestionService
+- get_loader()
+
+The loader registry automatically resolves implementations by file extension.
+
+---
+
+## Retriever Registry
+
+Location
+
+```
+core/retrieval/registry.py
+```
+
+Current implementation
+
+- HybridRetriever (default)
+
+Supports runtime injection for testing.
+
+How to add a new retriever
+
+1. Implement the `Retriever` interface.
+2. Register it:
+
+```python
+register_retriever(
+    "graph",
+    GraphRetriever,
+)
+```
+
+3. Inject it when required:
+
+```python
+inject_retriever("graph")
+```
+
+Do NOT modify
+
+- RetrievalPipeline
+- ResearchAgent
+
+These always retrieve implementations through the registry.
+
+---
+
+## Permission Policy Registry
+
+Location
+
+```
+core/permissions/registry.py
+```
+
+Current implementation
+
+- DepartmentPermissionPolicy
+
+How to add a new permission model
+
+1. Implement `PermissionPolicy`.
+2. Register:
+
+```python
+register_permission_policy(
+    "attribute_based",
+    ABACPolicy,
+)
+```
+
+3. Activate through controlled code configuration.
+
+Do NOT expose policy selection through any public API.
+
+Permission enforcement must remain entirely server-controlled.
+
+---
+
+## Tool Registry
+
+Location
+
+```
+tools/registry.py
+```
+
+Current implementation
+
+Generic Tool interface.
+
+Future tools may include
+
+- Calculator Tool
+- Web Search Tool
+- SQL Tool
+- Knowledge Graph Tool
+
+Register example
+
+```python
+register_tool(
+    "calculator",
+    CalculatorTool,
+)
+```
+
+Do NOT modify agent implementations when adding tools.
+
+Agents should request tools through the registry only.
+
+---
+
+## Agent Registry
+
+Location
+
+```
+agents/registry.py
+```
+
+Current implementation
+
+- PlannerAgent
+- ResearchAgent
+- ResponseAgent
+
+How to add a new workflow agent
+
+1. Create a class inheriting `Agent`.
+2. Register:
+
+```python
+register_agent(
+    "reviewer",
+    ReviewerAgent,
+)
+```
+
+3. Add the required workflow edge in `workflow.py`.
+
+No existing agents require modification.
+
+This keeps the LangGraph workflow extensible while preserving existing agent implementations.

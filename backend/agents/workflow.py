@@ -6,6 +6,11 @@ from langgraph.graph import (
 
 from agents.state import AgentState
 
+from agents.registry import (
+    get_agent,
+    register_agent,
+)
+
 from agents.planner.planner_agent import PlannerAgent
 from agents.research.research_agent import ResearchAgent
 from agents.response.response_agent import ResponseAgent
@@ -17,6 +22,25 @@ from core.retrieval.retrieval_pipeline import RetrievalPipeline
 from core.memory.session_memory import SessionMemory
 
 from core.conversation.query_resolver import QueryResolver
+
+#
+# Built-in workflow agents.
+#
+
+register_agent(
+    "planner",
+    PlannerAgent,
+)
+
+register_agent(
+    "research",
+    ResearchAgent,
+)
+
+register_agent(
+    "response",
+    ResponseAgent,
+)
 
 
 class AgentWorkflow:
@@ -56,7 +80,8 @@ class AgentWorkflow:
         #
         # Nodes
         #
-        self.planner_agent = PlannerAgent(
+        planner_class = get_agent("planner")
+        self.planner_agent = planner_class(
             self.pipeline.sql_store,
         )
 
@@ -65,7 +90,8 @@ class AgentWorkflow:
             self.planner_agent.execute,
         )
 
-        self.research_agent = ResearchAgent(
+        research_class = get_agent("research")
+        self.research_agent = research_class(
             pipeline=self.pipeline,
         )
 
@@ -74,7 +100,8 @@ class AgentWorkflow:
             self.research_agent.execute,
         )
 
-        self.response_agent = ResponseAgent(
+        response_class = get_agent("response")
+        self.response_agent = response_class(
             self.pipeline.sql_store,
         )
 

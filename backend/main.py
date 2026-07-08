@@ -109,9 +109,21 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
+    """
+    Lightweight health endpoint.
+
+    Used by:
+
+    - Railway health checks
+    - Docker verification
+    - Monitoring
+    """
+
     return {
         "status": "ok",
-        "version": "1.0"
+        "version": app.version,
+        "api_version": settings.API_VERSION,
+        "schema_version": settings.SCHEMA_VERSION,
     }
 
 

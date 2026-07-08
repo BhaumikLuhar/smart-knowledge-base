@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import core.conversation.query_resolver as query_resolver_module
 from core.conversation.query_resolver import QueryResolver
 
 
@@ -10,35 +9,6 @@ def make_signature(query: str, history: list[dict]) -> str:
     )
 
     return f"{query}||{history_bits}"
-
-
-def run_case(
-    resolver: QueryResolver,
-    title: str,
-    query: str,
-    history: list[dict],
-):
-    print("=" * 80)
-    print(title)
-    print("-" * 80)
-    print("Original Query:")
-    print(query)
-
-    print("\nHistory:")
-    if not history:
-        print("(empty)")
-    else:
-        for message in history:
-            print(f"{message['role']:>10}: {message['content']}")
-
-    resolved = resolver.resolve(
-        query=query,
-        history=history,
-    )
-
-    print("\nResolved Query:")
-    print(resolved)
-    print()
 
 
 @dataclass
