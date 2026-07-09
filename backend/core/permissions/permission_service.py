@@ -37,25 +37,9 @@ class PermissionService:
         Used BEFORE retrieval.
         """
 
-        allowed_departments = await self.policy.get_allowed_departments(user_context)
-
-        allowed_visibilities = await self.policy.get_allowed_visibilities(user_context)
-
-
-        return {
-            "$and": [
-                {
-                    "department_id": {
-                        "$in": allowed_departments
-                    }
-                },
-                {
-                    "visibility": {
-                        "$in": allowed_visibilities
-                    }
-                }
-            ]
-        }
+        return await self.policy.get_cached_chroma_filter(
+            user_context
+        )
     
 
     async def filter_chunks(

@@ -6,6 +6,7 @@ from core.auth.user_context import UserContext
 from core.config import settings
 from core.permissions.permission_service import PermissionService
 from core.retrieval.base_retriever import Retriever
+from core.cache.bm25_cache import BM25Cache
 
 from storage.sql.sql_store import SQLStore
 
@@ -23,6 +24,7 @@ class BM25Retriever(Retriever):
     def __init__(self, sql_store: SQLStore):
         self.sql_store = sql_store
         self.permission_service = PermissionService(sql_store)
+        self.cache = BM25Cache.get_instance()
 
 
     async def _tokenize(self, text: str)-> list[dict]:
@@ -56,39 +58,59 @@ class BM25Retriever(Retriever):
 
         allowed_visibilities = await self.permission_service.get_allowed_visibilities(user_context)
 
-        sql = """
-        SELECT
-            c.id,
-            c.chunk_index,
-            c.text,
-            c.document_id,
-            c.department_id,
-            c.page_number,
-            c.visibility,
-            d.name AS document_name
-        FROM chunks c
-        JOIN documents d
-            ON d.id = c.document_id
-        WHERE
-            c.department_id = ANY($1::uuid[])
-            AND c.visibility = ANY($2::text[])
-            AND d.status != 'deleted'
-        """
-
-        chunks = await self.sql_store.execute_raw(
-            sql,
-            (allowed_departments, allowed_visibilities)
+        scope_key = self.cache.build_scope_key(
+            allowed_departments,
+            allowed_visibilities,
         )
 
+        cached = self.cache.get(scope_key)
 
-        if not chunks:
-            return []
-        
-        tokenized_corpus = [
-            await self._tokenize(chunk["text"]) for chunk in chunks
-        ]
+        if cached is not None:
 
-        bm25 = BM25Okapi(tokenized_corpus)
+            bm25 = cached["bm25"]
+            chunks = cached["chunks"]
+
+        else:
+
+            sql = """
+            SELECT
+                c.id,
+                c.chunk_index,
+                c.text,
+                c.document_id,
+                c.department_id,
+                c.page_number,
+                c.visibility,
+                d.name AS document_name
+            FROM chunks c
+            JOIN documents d
+                ON d.id = c.document_id
+            WHERE
+                c.department_id = ANY($1::uuid[])
+                AND c.visibility = ANY($2::text[])
+                AND d.status != 'deleted'
+            """
+
+            chunks = await self.sql_store.execute_raw(
+                sql,
+                (allowed_departments, allowed_visibilities)
+            )
+
+
+            if not chunks:
+                return []
+            
+            tokenized_corpus = [
+                await self._tokenize(chunk["text"]) for chunk in chunks
+            ]
+
+            bm25 = BM25Okapi(tokenized_corpus)
+
+            self.cache.set(
+                scope_key,
+                bm25=bm25,
+                chunks=chunks,
+            )
 
         tokenized_query = await self._tokenize(query)
 

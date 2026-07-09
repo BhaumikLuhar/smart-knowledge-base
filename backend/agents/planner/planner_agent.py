@@ -16,6 +16,9 @@ from core.observability.collector import (
     ObservabilityCollector,
 )
 
+
+# from core.profiling.profiler import profiler
+
 class PlannerAgent(Agent):
     """
     Entry point of the agent workflow.
@@ -148,6 +151,7 @@ class PlannerAgent(Agent):
         """
 
         start = time.perf_counter()
+        # profiler.start("Planner Prompt Build")
 
         system_message = {
             "role": "system",
@@ -159,17 +163,21 @@ class PlannerAgent(Agent):
             "role": "user",
             "content": state["resolved_query"],
         }
+        # profiler.stop("Planner Prompt Build")
 
         try:
+            # profiler.start("Planner Generation")
             response, planner_tokens = get_llm().generate(
                 [
                     system_message,
                     user_message,
                 ]
             )
+            # profiler.stop("Planner Generation")
 
             state["planner_tokens_used"] = planner_tokens
 
+            # profiler.start("Planner JSON Parsing and validation")
             cleaned= self._strip_json_fences(response)
 
             result= json.loads(cleaned)
@@ -214,6 +222,9 @@ class PlannerAgent(Agent):
             state["retrieval_strategy"] = strategy
 
             state["search_queries"] = queries[:3]
+            # profiler.stop("Planner JSON Parsing and validation")
+
+            # profiler.report()
 
         except Exception as e:
 

@@ -7,8 +7,70 @@ from core.permissions.base_policy import PermissionPolicy
 
 class DepartmentPermissionPolicy(PermissionPolicy):
     _public_department_id: str | None = None
+    _department_cache: dict[
+        tuple[str, str | None],
+        list[str]
+    ] = {}
+    _filter_cache: dict[
+        tuple[str, str | None],
+        dict
+    ] = {}
+    
     def __init__(self, sql_store: SQLStore):
         self.sql_store = sql_store
+
+    @classmethod
+    def clear_filter_cache(cls):
+
+        cls._filter_cache.clear()
+
+
+    async def get_cached_chroma_filter(
+        self,
+        user_context: UserContext,
+    ) -> dict:
+
+        cache_key = (
+            user_context.role,
+            user_context.department_id,
+        )
+
+        cached = self.__class__._filter_cache.get(
+            cache_key
+        )
+
+        if cached is not None:
+            return cached
+
+        allowed_departments = await self.get_allowed_departments(
+            user_context
+        )
+
+        allowed_visibilities = await self.get_allowed_visibilities(
+            user_context
+        )
+
+        chroma_filter = {
+            "$and": [
+                {
+                    "department_id": {
+                        "$in": allowed_departments
+                    }
+                },
+                {
+                    "visibility": {
+                        "$in": allowed_visibilities
+                    }
+                }
+            ]
+        }
+
+        self.__class__._filter_cache[
+            cache_key
+        ] = chroma_filter
+
+        return chroma_filter
+
 
     async def get_public_department_id(self) -> str:
 
@@ -40,7 +102,17 @@ class DepartmentPermissionPolicy(PermissionPolicy):
     
 
     async def get_allowed_departments(self, user_context: UserContext) -> list[str]:
+        
+        cache_key = (
+            user_context.role,
+            user_context.department_id,
+        )
 
+        cached = self.__class__._department_cache.get(cache_key)
+
+        if cached is not None:
+            return cached
+        
         if user_context.role == "admin":
             departments = await self.sql_store.query(
                 "departments",
@@ -71,8 +143,12 @@ class DepartmentPermissionPolicy(PermissionPolicy):
         for row in permission_rows:
             allowed_departments.add(str(row["can_access_department_id"]))
 
-        return list(allowed_departments)
-    
+        result = list(allowed_departments)
+
+        self.__class__._department_cache[cache_key] = result
+
+        return result
+            
 
     async def get_allowed_visibilities(self, user_context: UserContext) -> list[str]:
 

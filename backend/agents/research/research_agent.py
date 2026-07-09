@@ -1,4 +1,5 @@
 import time
+import asyncio
 
 from agents.base_agent import Agent
 from agents.state import AgentState
@@ -10,6 +11,8 @@ from core.retrieval.retrieval_pipeline import RetrievalPipeline
 from core.observability.collector import (
     ObservabilityCollector,
 )
+
+# from core.profiling.profiler import profiler
 
 
 class ResearchAgent(Agent):
@@ -47,7 +50,7 @@ class ResearchAgent(Agent):
         self.pipeline = pipeline
         self.metrics = ObservabilityCollector(
             sql_store=pipeline.sql_store
-        )   
+        )
 
     async def execute(
         self,
@@ -65,12 +68,23 @@ class ResearchAgent(Agent):
         #
         unique_chunks: dict[str, dict] = {}
 
-        for query in queries:
-            result = await self.pipeline.retrieve_and_filter(
-                query=query,
-                user_context=user_context,
-            )
+        # profiler.start(f"Research Retrieval [{", ".join(
+        #     q[:30] for q in queries
+        # )}]")
+        results = await asyncio.gather(
+            *[
+                self.pipeline.retrieve_and_filter(
+                    query=query,
+                    user_context=user_context,
+                )
+                for query in queries
+            ]
+        )
+        # profiler.stop(f"Research Retrieval [{", ".join(
+        #     q[:30] for q in queries
+        # )}]")
 
+        for result in results:
             for chunk in result["chunks"]:
                 chunk_id = chunk["chunk_id"]
 
@@ -93,7 +107,7 @@ class ResearchAgent(Agent):
                 ):
 
                     unique_chunks[chunk_id] = chunk
-
+        # profiler.start("Research Deduplication + Sorting")
         final_chunks = sorted(
             unique_chunks.values(),
             key=lambda chunk: chunk.get(
@@ -104,6 +118,7 @@ class ResearchAgent(Agent):
         )[: settings.FINAL_TOP_K]
 
         state["retrieved_chunks"] = final_chunks
+        # profiler.stop("Research Deduplication + Sorting")
 
         state["no_results"] = len(final_chunks) == 0
 
@@ -143,4 +158,5 @@ class ResearchAgent(Agent):
             retrieval_count=len(final_chunks),
         )
 
+        # profiler.report()
         return state

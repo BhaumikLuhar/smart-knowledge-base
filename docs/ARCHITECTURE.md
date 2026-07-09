@@ -59,15 +59,19 @@ All vector database access is routed through VectorStore.
 ```text
 backend/
 │
-├── core/
-│   ├── auth/
-│   ├── generation/
-│   ├── knowledge/
-│   ├── retrieval/
-│   ├── permissions/
-│   ├── observability/
-│   ├── config.py
-│   └── database.py
+├──core/
+|   ├── auth/
+|   ├── cache/
+|   ├── conversation/
+|   ├── generation/
+|   ├── knowledge/
+|   ├── memory/
+|   ├── observability/
+|   ├── permissions/
+|   ├── profiling/
+|   ├── retrieval/
+|   ├── config.py
+|   └── database.py
 │
 ├── routers/
 │   ├── admin.py
@@ -341,6 +345,118 @@ Application-level permission validation provides a second authorization layer be
 
 ---
 
+# Performance Optimization Layer
+
+Week 4 introduces several performance optimizations while preserving the existing retrieval and generation behavior.
+
+The optimization strategy focuses on reducing latency without changing retrieval quality, authorization, or response generation.
+
+---
+
+## Multi-Level Cache Architecture
+
+```text
+                 User Query
+                      │
+                      ▼
+          Pipeline Response Cache
+             │             │
+      Cache Hit        Cache Miss
+             │             │
+             ▼             ▼
+        Return Response   Agent Workflow
+                              │
+                              ▼
+                     Parallel Research
+                              │
+              ┌───────────────┴───────────────┐
+              ▼                               ▼
+       Vector Retrieval                 BM25 Retrieval
+                                              │
+                                              ▼
+                                        BM25 Cache
+```
+
+Implemented cache layers:
+
+- Pipeline response cache
+- BM25 index cache
+- Cached public department lookup
+- Cached permission metadata
+
+> **Note:** Cache invalidation occurs whenever indexed knowledge changes.
+
+---
+
+## Parallel Execution
+
+Several independent stages execute concurrently.
+
+### Research Stage
+
+Planner-generated search queries execute retrieval simultaneously before results are merged and deduplicated.
+
+```text
+            Planner
+               │
+               ▼
+      ┌────────┬────────┬────────┐
+      ▼        ▼        ▼
+   Query 1   Query 2   Query 3
+      │        │        │
+      └────────┴────────┴────────┘
+                 │
+                 ▼
+        Merge + Deduplicate
+```
+
+### Persistence Stage
+
+Independent database writes execute concurrently.
+
+```text
+        Assistant Response
+                │
+                ▼
+ ┌──────────────┬──────────────┬──────────────┬──────────────┐
+ ▼              ▼              ▼              ▼
+User Msg   Assistant Msg    Metrics      Audit Log
+```
+
+This reduces response latency while preserving existing persistence behavior.
+
+---
+
+## Performance Profiling
+
+A lightweight profiler measures execution time throughout the request lifecycle.
+
+Measured stages include:
+
+- Session lookup
+- Planner execution
+- Hybrid retrieval
+- Query embedding
+- Chroma search
+- Permission filtering
+- CrossEncoder reranking
+- Retrieval audit logging
+- Generator execution
+- Parallel persistence
+- Complete workflow
+
+The profiler reports:
+
+- Total execution time
+- Average execution time
+- Minimum execution time
+- Maximum execution time
+- Invocation count
+
+> **Note:** Profiling is diagnostic only and does not affect application behavior.
+
+---
+
 # Database Schema
 
 ## departments
@@ -559,7 +675,12 @@ Implemented
 * Session-based chat interface
 * Agent execution reasoning display
 * Confidence visualization
-
+* Multi-level in-memory caching
+* Parallel research execution
+* Parallel persistence pipeline
+* Request-level performance profiling
+* Permission metadata caching
+* BM25 index caching
 
 
 ## Retrieval Pipeline
@@ -570,14 +691,22 @@ The Retrieval Pipeline provides a centralized orchestration layer for knowledge 
 User Query
       │
       ▼
+Pipeline Cache
+      │
+      ▼
+Planner
+      │
+      ▼
+Parallel Research Retrieval
+      │
+      ▼
 Hybrid Retriever
       │
       ▼
 Metadata Filtering
-(Department + Visibility)
       │
       ▼
-Secondary Permission Filter
+Permission Validation
       │
       ▼
 Cross-Encoder Reranker
@@ -586,13 +715,10 @@ Cross-Encoder Reranker
 Retrieval Quality Gate
       │
       ▼
-Final Top-K
-      │
-      ▼
-Audit Logging
-      │
-      ▼
 Generator
+      │
+      ▼
+Parallel Persistence
 ```
 
 

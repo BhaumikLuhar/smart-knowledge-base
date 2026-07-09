@@ -2993,3 +2993,299 @@ Administrative APIs remain protected through role-based authorization.
 - Header-based API versioning.
 
 URL-based versioning was selected because it is explicit, widely adopted, and simple for both frontend and backend routing.
+
+
+## Day 25 - Performance Optimization & Pipeline Scalability
+
+### ADR-045: Parallel Research Retrieval Execution
+
+**Status**
+
+Accepted
+
+### Context
+
+The original Research Agent executed the Retrieval Pipeline independently for every planner-generated search query.
+
+For a planner output such as:
+
+```text
+leave policy
+annual leave policy
+employee leave entitlement
+```
+
+The workflow performed:
+
+1. Retrieve first query
+2. Wait
+3. Retrieve second query
+4. Wait
+5. Retrieve third query
+
+Although each retrieval was independent, they were executed sequentially, increasing total response latency.
+
+### Decision
+
+The Research Agent now executes retrieval for all planner-generated search queries concurrently using asynchronous task execution.
+
+Each retrieval still performs:
+
+- Hybrid Retrieval
+- Permission Filtering
+- CrossEncoder Reranking
+- Retrieval Quality Gates
+- Audit Logging
+
+After all retrievals complete:
+
+- Results are merged.
+- Duplicate chunks are removed.
+- The highest rerank score is preserved.
+- Final Top-K chunks are selected.
+
+The retrieval logic itself remains unchanged.
+
+### Consequences
+
+#### Advantages
+
+- Reduces overall research latency.
+- Preserves retrieval quality.
+- No behavioural changes.
+- No impact on citations or confidence scoring.
+- Improves scalability as the planner generates multiple search queries.
+
+#### Disadvantages
+
+- Slightly higher CPU utilization during concurrent execution.
+- Multiple retrieval tasks may compete for shared resources under heavy load.
+
+---
+
+### ADR-046: Permission Metadata Caching
+
+**Status**
+
+Accepted
+
+### Context
+
+Permission resolution was repeatedly querying PostgreSQL during retrieval.
+
+For every request, the system repeatedly loaded:
+
+- Accessible departments
+- Visibility filters
+- Public department information
+
+Although these values rarely change, they were reconstructed multiple times throughout the retrieval pipeline.
+
+Profiling showed permission construction becoming a measurable portion of total retrieval latency.
+
+### Decision
+
+Permission metadata is now cached during a request and reused across all retrieval stages.
+
+The optimization includes:
+
+- Cached public department lookup
+- Cached department permissions
+- Cached visibility permissions
+- Reuse across Vector Retriever
+- Reuse across BM25 Retriever
+- Reuse during permission filtering
+
+No authorization logic was modified.
+
+### Consequences
+
+#### Advantages
+
+- Fewer PostgreSQL queries.
+- Lower retrieval latency.
+- Consistent permission evaluation.
+- No security changes.
+
+#### Disadvantages
+
+- Cached permissions remain valid only for the lifetime of the request.
+
+---
+
+### ADR-047: Multi-Level Retrieval Caching
+
+**Status**
+
+Accepted
+
+### Context
+
+Profiling showed repeated execution of expensive retrieval components even when identical requests were processed.
+
+Two primary optimization opportunities were identified:
+
+- Repeated BM25 index construction.
+- Identical chat requests submitted within the same session.
+
+Neither optimization affected retrieval correctness.
+
+### Decision
+
+Two independent cache layers were introduced.
+
+#### BM25 Cache
+
+Caches:
+
+- Tokenized corpus
+- BM25 index
+- Permission-scoped chunk list
+
+The cache is invalidated whenever document ingestion changes indexed content.
+
+#### Pipeline Response Cache
+
+Caches complete chat responses using:
+
+- User ID
+- Session ID
+- Original user message
+
+Cache hits bypass:
+
+- Planner execution
+- Retrieval pipeline
+- Reranking
+- Response generation
+
+while still persisting:
+
+- Conversation history
+- Observability records
+
+### Consequences
+
+#### Advantages
+
+- Eliminates repeated BM25 index creation.
+- Instant responses for identical questions.
+- Reduced LLM usage.
+- Lower database load.
+
+#### Disadvantages
+
+- Memory usage increases.
+- Cached responses remain valid until invalidated.
+
+---
+
+### ADR-048: Parallel Persistence Pipeline
+
+**Status**
+
+Accepted
+
+### Context
+
+Following answer generation, persistence operations were executed sequentially.
+
+Each request performed:
+
+1. Save user message
+2. Save assistant message
+3. Save metrics
+4. Save audit log
+
+Because each operation required a separate PostgreSQL request, persistence contributed noticeable latency despite the operations being independent.
+
+### Decision
+
+Independent persistence operations are now executed concurrently using asynchronous task scheduling.
+
+The following operations run in parallel:
+
+- User message persistence
+- Assistant message persistence
+- Metrics recording
+- Audit logging
+
+All operations still complete before the response lifecycle finishes.
+
+No persistence semantics were modified.
+
+### Consequences
+
+#### Advantages
+
+- Significantly lower persistence latency.
+- Better utilization of PostgreSQL connection pooling.
+- No changes to stored data.
+- Improved throughput under concurrent load.
+
+#### Disadvantages
+
+- Failures may originate from concurrent tasks, requiring aggregated exception handling.
+
+---
+
+### ADR-049: End-to-End Performance Profiling Framework
+
+**Status**
+
+Accepted
+
+### Context
+
+Performance bottlenecks could not be accurately identified because execution time was measured only for the overall request.
+
+Without fine-grained profiling, optimization decisions relied on assumptions rather than evidence.
+
+### Decision
+
+A lightweight profiling framework was introduced across the RAG pipeline.
+
+Profiling now captures execution time for:
+
+- Session lookup
+- Query resolver
+- Planner generation
+- Planner parsing
+- Research retrieval
+- Hybrid retrieval
+- Vector retrieval
+- BM25 retrieval
+- Query embedding
+- Chroma query
+- Permission filter construction
+- Permission filtering
+- CrossEncoder prediction
+- Retrieval audit logging
+- Generator context creation
+- Generator LLM generation
+- Parallel persistence
+- Complete workflow
+
+The profiler reports:
+
+- Total time
+- Average time
+- Minimum time
+- Maximum time
+- Invocation count
+
+The profiler is diagnostic only and does not modify runtime behaviour.
+
+### Consequences
+
+#### Advantages
+
+- Accurate bottleneck identification.
+- Objective optimization decisions.
+- Easier regression detection.
+- Foundation for future observability dashboards.
+
+#### Disadvantages
+
+- Minimal runtime overhead during profiling.
+- Intended primarily for development and performance analysis.

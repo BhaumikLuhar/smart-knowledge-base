@@ -5,6 +5,8 @@ from core.knowledge.loaders.factory import get_loader
 from storage.sql.sql_store import SQLStore
 from core.retrieval.embedder import Embedder
 from storage.vector.vector_store import VectorStore
+from core.cache.bm25_cache import BM25Cache
+from core.cache.pipeline_cache import PipelineCache
 
 logger = logging.getLogger(__name__)
 
@@ -310,6 +312,17 @@ async def ingest_document(
         logger.info(
             f"Document ready: "
             f"{document_id}"
+        )
+
+        #
+        # Invalidate caches after successful ingestion.
+        #
+        BM25Cache.get_instance().mark_dirty()
+
+        PipelineCache.get_instance().clear()
+
+        logger.info(
+            "Retrieval caches invalidated after ingestion."
         )
 
     except Exception as e:

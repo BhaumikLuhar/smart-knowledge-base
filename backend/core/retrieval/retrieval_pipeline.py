@@ -9,6 +9,8 @@ from core.retrieval.reranker_registry import get_reranker
 
 import logging
 
+# from core.profiling.profiler import profiler
+
 logger = logging.getLogger(__name__)
 
 
@@ -71,11 +73,14 @@ class RetrievalPipeline:
         # Stage 1
         # Candidate Retrieval
         # 
+        # profiler.start("Retrieval Pipeline")
+        # profiler.start("Retriever")
         candidates = await self.retriever.retrieve(
             query=query,
             user_context=user_context,
             top_k=settings.CANDIDATE_TOP_K
         )
+        # profiler.stop("Retriever")
 
         #
         # Nothing indexed
@@ -105,11 +110,12 @@ class RetrievalPipeline:
         # Stage 2
         # Secondary permission check
         #
+        # profiler.start("Permission Filter")
         authorized = await self.permission_service.filter_chunks(
             user_context,
             candidates
         )
-
+        # profiler.stop("Permission Filter")
         #
         # No authorized documents
         #
@@ -138,11 +144,12 @@ class RetrievalPipeline:
         # Stage 3
         # Rerank authorized chunks
         #
+        # profiler.start("CrossEncoder Rerank")
         reranked = self.reranker.rerank(
             query=query,
             candidates=authorized
         )
-
+        # profiler.stop("CrossEncoder Rerank")
         #
         # Stage 4
         # Final Top-K
@@ -203,7 +210,7 @@ class RetrievalPipeline:
         # Stage 5
         # Audit log
         #
-
+        # profiler.start("Retrieval Audit Log")
         await self._log_query(
             query=query,
             user_context=user_context,
@@ -211,7 +218,10 @@ class RetrievalPipeline:
             authorized=authorized,
             final=final,
             quality_gate=quality_gate,
-        )
+        )   
+        # profiler.stop("Retrieval Audit Log")
+
+        # profiler.stop("Retrieval Pipeline")
 
         return {
             "chunks": final,

@@ -1,3 +1,4 @@
+import asyncio
 import time
 
 from core.auth.user_context import UserContext
@@ -19,6 +20,10 @@ from core.retrieval.retrieval_pipeline import (
 from storage.sql.sql_store import SQLStore
 
 from core.config import settings
+
+from core.cache.pipeline_cache import PipelineCache
+
+# from core.profiling.profiler import profiler
 
 
 class ChatService:
@@ -50,6 +55,8 @@ class ChatService:
             sql_store
         )
 
+        self.pipeline_cache = PipelineCache.get_instance()
+
     async def _save_user_message(
         self,
         session_id: str,
@@ -67,7 +74,6 @@ class ChatService:
                 "content": message,
             },
         )
-
 
     async def _save_assistant_message(
         self,
@@ -101,8 +107,6 @@ class ChatService:
             },
         )
 
-    
-
     async def _record_success(
         self,
         *,
@@ -120,7 +124,6 @@ class ChatService:
             retrieval_count=retrieval_count,
         )
 
-
     async def _record_failure(
         self,
         *,
@@ -136,7 +139,6 @@ class ChatService:
             retrieval_count=0,
             error_message=str(error),
         )
-
 
     async def _record_query_audit(
         self,
@@ -164,7 +166,6 @@ class ChatService:
             },
         )
 
-
     async def query(
         self,
         *,
@@ -177,73 +178,154 @@ class ChatService:
         """
 
         start_time = time.perf_counter()
+        # profiler.reset()
 
+        # profiler.start("Session Lookup")
         session = await self.session_service.get_or_create_session(
             session_id=session_id,
             user_id=current_user.id,
         )
+        # profiler.stop("Session Lookup")
+
+        cached = self.pipeline_cache.get(
+            user_id=current_user.id,
+            session_id=str(session["id"]),
+            question=message,
+        )
+
+        if cached is not None:
+
+            await asyncio.gather(
+                self._save_user_message(
+                    session_id=str(session["id"]),
+                    message=message,
+                ),
+
+                self._save_assistant_message(
+                    session_id=str(session["id"]),
+                    state={
+                        "answer": cached.answer,
+                        "citations": cached.citations,
+                        "confidence_score": cached.confidence_score,
+                        "confidence_level": cached.confidence_level,
+                        "tokens_used": cached.tokens_used,
+                        "planner_tokens_used": 0,
+                        "resolved_query": "",
+                        "trace": cached.trace,
+                    },
+                ),
+
+                self._record_success(
+                    user_id=current_user.id,
+                    latency=1,
+                    tokens_used=0,
+                    retrieval_count=0,
+                ),
+            )
+
+            return cached
 
         try:
             #
             # Execute retrieval + generation
             #
+            # profiler.start("Complete Agent Workflow")
             state = await run_agent_pipeline(
                 query=message,
                 user_context=current_user,
                 session_id=str(session["id"]),
                 pipeline=self.pipeline,
             )
-
-            #
-            # Persist user message
-            #
-            await self._save_user_message(
-                session_id=str(session["id"]),
-                message=message,
-            )
-
-            #
-            # Persist assistant response
-            #
-            await self._save_assistant_message(
-                session_id=str(session["id"]),
-                state=state,
-            )
+            # profiler.stop("Complete Agent Workflow")
 
             latency = (
                 time.perf_counter() - start_time
             ) * 1000
 
             #
-            # Metrics
+            # Persist everything in parallel.
             #
-            await self._record_success(
-                user_id=current_user.id,
-                latency=latency,
-                tokens_used=state["tokens_used"] + state["planner_tokens_used"],
-                retrieval_count=len(
-                    state["retrieved_chunks"]
+            # profiler.start("Parallel Persistence")
+
+            results = await asyncio.gather(
+
+                #
+                # Persist user message
+                #
+                self._save_user_message(
+                    session_id=str(session["id"]),
+                    message=message,
                 ),
+
+                #
+                # Persist assistant response
+                #
+                self._save_assistant_message(
+                    session_id=str(session["id"]),
+                    state=state,
+                ),
+
+                #
+                # Metrics
+                #
+                self._record_success(
+                    user_id=current_user.id,
+                    latency=latency,
+                    tokens_used=(
+                        state["tokens_used"]
+                        + state["planner_tokens_used"]
+                    ),
+                    retrieval_count=len(
+                        state["retrieved_chunks"]
+                    ),
+                ),
+
+                #
+                # Audit log
+                #
+                self._record_query_audit(
+                    user_id=current_user.id,
+                    session_id=str(session["id"]),
+                    query=message,
+                    state=state,
+                ),
+
+                return_exceptions=True,
             )
 
-            await self._record_query_audit(
-                user_id=current_user.id,
-                session_id=str(session["id"]),
-                query=message,
-                state=state,
-            )
+            # profiler.stop("Parallel Persistence")
 
-            return ChatQueryResponse(
+            #
+            # Preserve existing failure behaviour.
+            #
+            for result in results:
+                if isinstance(result, Exception):
+                    raise result
+
+            response = ChatQueryResponse(
                 session_id=str(session["id"]),
                 answer=state["answer"],
                 citations=state["citations"],
                 confidence_score=state["confidence_score"],
                 confidence_level=state["confidence_level"],
-                tokens_used=state["tokens_used"] + state["planner_tokens_used"],
+                tokens_used=(
+                    state["tokens_used"]
+                    + state["planner_tokens_used"]
+                ),
                 fallback=state["no_results"],
                 model_used=settings.GROQ_MODEL,
                 trace=state["trace"],
             )
+
+            self.pipeline_cache.set(
+                user_id=current_user.id,
+                session_id=str(session["id"]),
+                question=message,
+                response=response,
+            )
+
+            # profiler.report()
+            return response
 
         except Exception as exc:
 

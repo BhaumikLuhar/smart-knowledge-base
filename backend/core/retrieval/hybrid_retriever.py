@@ -1,3 +1,5 @@
+import asyncio
+
 from core.auth.user_context import UserContext
 from core.config import settings
 from core.retrieval.base_retriever import Retriever
@@ -5,6 +7,8 @@ from core.retrieval.vector_retriever import VectorRetriever
 from core.retrieval.bm25_retriever import BM25Retriever
 
 from storage.sql.sql_store import SQLStore
+
+# from core.profiling.profiler import profiler
 
 
 class HybridRetriever(Retriever):
@@ -41,24 +45,27 @@ class HybridRetriever(Retriever):
         
         top_k = top_k or settings.CANDIDATE_TOP_K
 
-        vector_results = await self.vector_retriever.retrieve(
-            query,
-            user_context,
-            top_k=top_k
+        # profiler.start("Vector + BM25 Retrieval")
+        vector_results, bm25_results = await asyncio.gather(
+            self.vector_retriever.retrieve(
+                query=query,
+                user_context=user_context,
+                top_k=top_k,
+            ),
+            self.bm25_retriever.retrieve(
+                query=query,
+                user_context=user_context,
+                top_k=top_k,
+            ),
         )
-
-        bm25_results = await self.bm25_retriever.retrieve(
-            query,
-            user_context,
-            top_k=top_k
-        )
+        # profiler.stop("Vector + BM25 Retrieval")
 
         merged: dict[str, dict] = {}
         
         #
         # Add vector results
         #
-
+        # profiler.start("Hybrid Merge")
         for chunk in vector_results:
             chunk_id= chunk["chunk_id"]
 
@@ -109,5 +116,6 @@ class HybridRetriever(Retriever):
             key=lambda x: x["score"],
             reverse=True
         )
+        # profiler.stop("Hybrid Merge")
 
         return results[:top_k]
