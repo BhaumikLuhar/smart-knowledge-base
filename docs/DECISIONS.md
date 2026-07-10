@@ -1,5 +1,18 @@
 # Engineering Decisions
 
+## About This Document
+
+This document records the significant architectural and implementation decisions made throughout the development of Smart Knowledge Bank.
+
+Each Architecture Decision Record (ADR) captures:
+
+- Context
+- Decision
+- Consequences
+- Trade-offs (where applicable)
+
+The ADRs are organized chronologically to document the evolution of the system from the initial knowledge management infrastructure to the final enterprise-ready multi-agent platform.
+
 ## Day 1
 
 ### Stack Selection
@@ -3289,3 +3302,18 @@ The profiler is diagnostic only and does not modify runtime behaviour.
 
 - Minimal runtime overhead during profiling.
 - Intended primarily for development and performance analysis.
+
+
+
+# Decision Summary
+
+The decisions documented throughout this project emphasize:
+
+- Modular architecture
+- Enterprise security
+- Explainable AI
+- Performance optimization
+- Extensibility
+- Clean software engineering
+
+Collectively, these decisions establish a stable architectural foundation that supports future enhancements without requiring fundamental redesigns.

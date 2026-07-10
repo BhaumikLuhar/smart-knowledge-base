@@ -2,49 +2,79 @@
 
 ## Overview
 
-Smart Knowledge Bank is a Retrieval-Augmented Knowledge Management platform that allows organizations to upload, process, store, and retrieve internal knowledge documents.
+Smart Knowledge Bank is a department-aware, Retrieval-Augmented knowledge intelligence platform that allows organizations to upload, process, store, and retrieve internal knowledge documents through a permission-aware, multi-agent workflow.
 
-Week 1 establishes the ingestion and retrieval foundation:
+The system has evolved from a Week 1 ingestion/retrieval foundation into a full multi-agent AI platform. See [Architectural Evolution](#architectural-evolution) at the end of this document for the complete progression.
 
-* Document upload
-* Department organization
-* Metadata management
-* Document chunking
-* Embedding generation
-* Vector storage
-* Semantic search
-* Administrative knowledge base management
+---
+
+# Architectural Principles
+
+The Smart Knowledge Bank is designed around several core software engineering principles.
+
+- **Separation of Concerns** – Business logic, retrieval, storage, and presentation are isolated into independent layers.
+- **Defense in Depth** – Multiple authorization layers prevent unauthorized information from reaching the language model.
+- **Open for Extension** – Registry-based architecture allows new components to be added without modifying existing implementations.
+- **Provider Abstraction** – Storage systems, language models, and retrieval components are abstracted behind interfaces to support future replacements.
+- **Explainability First** – Every response includes supporting evidence, citations, confidence metrics, and reasoning traces.
+- **Performance-Oriented Design** – Multi-level caching, asynchronous execution, and fine-grained profiling minimize latency while preserving retrieval quality.
 
 ---
 
 # High-Level Architecture
 
 ```text
-┌─────────────────────┐
-│      Next.js        │
-│      Frontend       │
-└──────────┬──────────┘
-           │ HTTP
-           ▼
-┌─────────────────────┐
-│      FastAPI        │
-│      API Layer      │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│   Knowledge Layer   │
-│ Business Services   │
-└──────────┬──────────┘
-           │
-           ├───────────────┐
-           │               │
-           ▼               ▼
-┌─────────────────┐  ┌─────────────────┐
-│   SQL Store     │  │  Vector Store   │
-│  PostgreSQL     │  │     Chroma      │
-└─────────────────┘  └─────────────────┘
+                                      Smart Knowledge Bank
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    Next.js Frontend                                         │
+│                                                                                             │
+│ Login │ Dashboard │ Knowledge Base │ Chat │ Users │ Audit Logs │ Settings                   │
+└───────────────────────────────────────┬─────────────────────────────────────────────────────┘
+                                        │
+                                  REST API (/api/v1)
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                      FastAPI Backend                                        │
+└───────────────────────────────────────┬─────────────────────────────────────────────────────┘
+                                        │
+                ┌───────────────────────┼───────────────────────────┐
+                │                       │                           │
+                ▼                       ▼                           ▼
+        Authentication            Admin Services              Chat Service
+                │                       │                           │
+                └───────────────────────┼───────────────────────────┘
+                                        │
+                                        ▼
+                             Conversation Processing Layer
+                                        │
+                        Session Memory + Query Resolver
+                                        │
+                                        ▼
+                           LangGraph Multi-Agent Workflow
+                                        │
+          ┌─────────────────────────────┼─────────────────────────────┐
+          ▼                             ▼                             ▼
+   Planner Agent                 Research Agent               Response Agent
+          │                             │                             │
+          └─────────────────────────────┼─────────────────────────────┘
+                                        ▼
+                             Permission-Aware Retrieval Pipeline
+                                        │
+     Pipeline Cache → Hybrid Search → Permission Filter → Reranker → Quality Gate
+                                        │
+                                        ▼
+                   PostgreSQL + Chroma Vector Database + File Storage
+                                        │
+                                        ▼
+                                 Groq Language Model
+                                        │
+                                        ▼
+                Grounded Response + Citations + Confidence + Reasoning Trace
 ```
+
+This diagram mirrors the canonical System Architecture diagram in `README.md`.
 
 The application follows a layered architecture where business services never communicate directly with PostgreSQL or Chroma.
 
@@ -54,24 +84,72 @@ All vector database access is routed through VectorStore.
 
 ---
 
+# Request Lifecycle
+
+The end-to-end path of a single chat request through every architectural layer:
+
+```text
+User
+  │
+  ▼
+JWT Authentication
+  │
+  ▼
+Router
+  │
+  ▼
+Service
+  │
+  ▼
+Conversation Layer
+  │
+  ▼
+Planner
+  │
+  ▼
+Research
+  │
+  ▼
+Retrieval
+  │
+  ▼
+Generator
+  │
+  ▼
+Persistence
+  │
+  ▼
+Frontend
+```
+
+---
+
 # Backend Structure
 
 ```text
 backend/
 │
-├──core/
-|   ├── auth/
-|   ├── cache/
-|   ├── conversation/
-|   ├── generation/
-|   ├── knowledge/
-|   ├── memory/
-|   ├── observability/
-|   ├── permissions/
-|   ├── profiling/
-|   ├── retrieval/
-|   ├── config.py
-|   └── database.py
+├── core/
+│   ├── auth/
+│   ├── cache/
+│   ├── conversation/
+│   ├── evaluation/
+│   ├── generation/
+│   ├── knowledge/
+│   ├── memory/
+│   ├── observability/
+│   ├── permissions/
+│   ├── profiling/
+│   ├── retrieval/
+│   ├── config.py
+│   └── database.py
+│
+├── agents/
+│   ├── planner_agent.py
+│   ├── research_agent.py
+│   ├── response_agent.py
+│   ├── registry.py
+│   └── workflow.py
 │
 ├── routers/
 │   ├── admin.py
@@ -100,6 +178,7 @@ frontend/
 │   ├── knowledge-base/
 │   ├── chat/
 │   ├── users/
+│   ├── audit/
 │   └── settings/
 │
 ├── components/
@@ -107,6 +186,8 @@ frontend/
 │   ├── ui/
 │   └── sidebar.tsx
 │
+├── contexts/
+├── hooks/
 ├── services/
 ├── types/
 └── lib/
@@ -114,52 +195,306 @@ frontend/
 
 ---
 
+# Conversation Layer
+
+The Conversation Layer prepares user input before agent execution.
+
+Components:
+
+- SessionService
+- Session Memory
+- Query Resolver
+
+Responsibilities:
+
+- Load recent messages
+- Maintain conversational context
+- Rewrite follow-up questions
+- Produce resolved retrieval query
+
+---
+
+# Agent Workflow
+
+The complete chat workflow combines conversational memory, LangGraph orchestration, permission-aware retrieval, and grounded response generation.
+
+```text
+Client
+   │
+   ▼
+Chat UI
+   │
+   ▼
+Chat Router
+   │
+   ▼
+ChatService
+   │
+   ▼
+SessionService
+(load history)
+   │
+   ▼
+Conversation Resolver
+(resolve retrieval query)
+   │
+   ▼
+run_agent_pipeline()
+   │
+   ▼
+Planner Agent
+   │
+   ▼
+Research Agent
+   │
+   ▼
+Response Agent
+   │
+   ▼
+Generator
+   │
+   ▼
+Groq Provider
+   │
+   ▼
+Citation Builder
+   │
+   ▼
+Confidence Layer
+   │
+   ▼
+Reasoning Trace
+   │
+   ▼
+Structured Response
+```
+
+Shared `AgentState` contains:
+
+- original query
+- resolved query
+- conversation history
+- retrieval strategy
+- search queries
+- retrieved chunks
+- citations
+- confidence score
+- confidence level
+- reasoning trace
+
+### Agent Responsibilities
+
+#### Planner Agent
+
+- Analyzes the request
+- Determines retrieval strategy
+- Generates optimized search queries
+
+#### Research Agent
+
+- Executes permission-aware retrieval
+- Aggregates and deduplicates retrieved chunks
+- Preserves retrieval trace
+
+#### Response Agent
+
+- Generates grounded responses
+- Builds citations
+- Computes confidence
+- Records execution trace
+
+### Parallel Research Execution
+
+Planner-generated search queries execute retrieval simultaneously before results are merged and deduplicated.
+
+```text
+            Planner
+               │
+               ▼
+      ┌────────┬────────┬────────┐
+      ▼        ▼        ▼
+   Query 1   Query 2   Query 3
+      │        │        │
+      └────────┴────────┴────────┘
+                 │
+                 ▼
+        Merge + Deduplicate
+```
+
+---
+
+# Retrieval Architecture
+
+The Research Agent delegates to a centralized Retrieval Pipeline that resolves queries into authorized, reranked context.
+
+```text
+User Query
+      │
+      ▼
+Pipeline Cache
+      │
+      ▼
+Hybrid Retrieval
+      │
+      ▼
+Chroma Metadata Filter
+      │
+      ▼
+Application Permission Validation
+      │
+      ▼
+Cross-Encoder Reranker
+      │
+      ▼
+Retrieval Quality Gate
+      │
+      ▼
+Generator
+```
+
+Hybrid retrieval combines both search strategies using a fixed weighting:
+
+```text
+Vector Search (70%) + BM25 Search (30%)
+```
+
+Reranking is performed using:
+
+```text
+cross-encoder/ms-marco-MiniLM-L-6-v2
+```
+
+Current metadata filters:
+
+```python
+{
+    "department_id": "<department-id>"
+}
+```
+
+Current metadata filtering enforces both:
+
+- Department permissions
+- Document visibility
+
+before retrieval. Application-level permission validation provides a second authorization layer before reranking, and the resulting audit log entry provides a third.
+
+### RetrievalPipeline Responsibilities
+
+- Hybrid retrieval
+- Metadata filtering
+- Secondary permission validation
+- Cross-encoder reranking
+- Retrieval quality validation
+- Audit logging
+
+The pipeline guarantees that only authorized and sufficiently relevant context reaches the Generator.
+
+---
+
+# Generation Layer
+
+Responsible for producing grounded, permission-aware responses from authorized retrieval results.
+
+```text
+Authorized Retrieval Context
+              │
+              ▼
+          Generator
+              │
+    ┌─────────┴─────────┐
+    ▼                   ▼
+Citation Builder    LLM Provider
+                          │
+                          ▼
+                   Groq Provider
+```
+
+### ChatService
+
+Coordinates the complete RAG request lifecycle.
+
+Responsibilities:
+
+- Session management
+- Message persistence
+- Retrieval execution
+- Response generation
+- Metrics recording
+
+### SessionService
+
+Manages conversation sessions and validates ownership.
+
+### Generator
+
+Transforms authorized retrieval context into grounded natural language responses.
+
+Responsibilities:
+
+- Build prompts
+- Invoke the configured LLM provider
+- Compute response confidence
+- Generate citations
+- Return structured responses
+- Return a fallback response when no authorized or relevant context exists
+
+The Generator never invokes the LLM when retrieval returns no usable context.
+
+### Citation Builder
+
+Aggregates citations by document, removes duplicate references, and preserves page and chunk metadata.
+
+### LLM Provider
+
+Defines the provider abstraction.
+
+Current implementation:
+
+- Groq (OpenAI-compatible API)
+
+Future providers can be added without changing the generation pipeline.
+
+---
+
 # Knowledge Layer
 
 The Knowledge Layer contains all business logic.
-
-Current services:
 
 ### KnowledgeService
 
 Responsibilities:
 
-* Validate uploads
-* Register documents
-* Create document records
-* Start ingestion workflow
-
----
+- Validate uploads
+- Register documents
+- Create document records
+- Start ingestion workflow
 
 ### DepartmentService
 
 Responsibilities:
 
-* Department management
-* Department document queries
-* Metadata updates
-* Soft delete operations
-
----
+- Department management
+- Department document queries
+- Metadata updates
+- Soft delete operations
 
 ### PermissionService
 
 Responsibilities:
 
-* Create permission rules
-* Validate department access mappings
-
----
+- Create permission rules
+- Validate department access mappings
 
 ### FileService
 
 Responsibilities:
 
-* File validation
-* Extension validation
-* File size validation
-* Disk storage
-* Filename sanitization
+- File validation
+- Extension validation
+- File size validation
+- Disk storage
+- Filename sanitization
 
 ---
 
@@ -171,16 +506,14 @@ Central PostgreSQL abstraction.
 
 Responsibilities:
 
-* Save records
-* Query records
-* Update records
-* Delete records
-* Bulk chunk insertion
-* Execute raw reporting queries
+- Save records
+- Query records
+- Update records
+- Delete records
+- Bulk chunk insertion
+- Execute raw reporting queries
 
 Application services do not import asyncpg directly.
-
----
 
 ## VectorStore
 
@@ -188,10 +521,10 @@ Central Chroma abstraction.
 
 Responsibilities:
 
-* Save embeddings
-* Query embeddings
-* Delete vectors
-* Count vectors
+- Save embeddings
+- Query embeddings
+- Delete vectors
+- Count vectors
 
 Application services do not import chromadb directly.
 
@@ -241,10 +574,10 @@ Loaders are registered through a central registry.
 
 Current loaders:
 
-* PDF Loader
-* DOCX Loader
-* TXT Loader
-* Markdown Loader
+- PDF Loader
+- DOCX Loader
+- TXT Loader
+- Markdown Loader
 
 Selection occurs automatically through file extension matching.
 
@@ -298,9 +631,9 @@ Singleton pattern.
 
 Benefits:
 
-* Model loaded once
-* Reduced memory usage
-* Faster inference
+- Model loaded once
+- Reduced memory usage
+- Faster inference
 
 Query embeddings use BGE query prefixing:
 
@@ -310,50 +643,37 @@ Represent this sentence for searching relevant passages:
 
 ---
 
-# Retrieval Architecture
-
-Current retrieval process:
-
-1. User query received
-2. Hybrid retrieval (Vector + BM25)
-3. Metadata filtering
-   - department
-   - visibility
-4. Secondary permission validation
-5. Cross-Encoder reranking
-6. Retrieval quality gate
-7. Final Top-K
-8. Audit logging
-9. Context returned to the Generator
-
-Current metadata filters:
-
-```python
-{
-    "department_id": "<department-id>"
-}
-```
-
-Current metadata filtering enforces both:
-
-- Department permissions
-- Document visibility
-
-before retrieval.
-
-Application-level permission validation provides a second authorization layer before reranking.
-
----
-
 # Performance Optimization Layer
 
-Week 4 introduces several performance optimizations while preserving the existing retrieval and generation behavior.
+Additional Optimizations:
 
-The optimization strategy focuses on reducing latency without changing retrieval quality, authorization, or response generation.
+- Permission filter cache
+- Department lookup cache
+- Cached Chroma filter generation
+- Cached public department lookup
+- Singleton embedding model
+- Singleton reranker
 
 ---
 
-## Multi-Level Cache Architecture
+## Cache Architecture
+
+```text
+                 Cache Layer
+
+          Pipeline Cache
+          BM25 Cache
+          Permission Cache
+          Department Cache
+          Public Department Cache
+
+                     │
+                     ▼
+
+            Retrieval Pipeline
+```
+
+Request flow through the cache layer:
 
 ```text
                  User Query
@@ -388,31 +708,9 @@ Implemented cache layers:
 
 ---
 
-## Parallel Execution
+## Parallel Persistence
 
-Several independent stages execute concurrently.
-
-### Research Stage
-
-Planner-generated search queries execute retrieval simultaneously before results are merged and deduplicated.
-
-```text
-            Planner
-               │
-               ▼
-      ┌────────┬────────┬────────┐
-      ▼        ▼        ▼
-   Query 1   Query 2   Query 3
-      │        │        │
-      └────────┴────────┴────────┘
-                 │
-                 ▼
-        Merge + Deduplicate
-```
-
-### Persistence Stage
-
-Independent database writes execute concurrently.
+Independent database writes execute concurrently after a response is generated.
 
 ```text
         Assistant Response
@@ -469,8 +767,6 @@ description
 created_at
 ```
 
----
-
 ## users
 
 ```text
@@ -482,8 +778,6 @@ role
 department_id
 created_at
 ```
-
----
 
 ## documents
 
@@ -504,7 +798,7 @@ created_at
 updated_at
 ```
 
----
+> **Note:** Version information is currently maintained in the `documents.version` field. A dedicated `document_versions` table is planned for Phase 2.
 
 ## chunks
 
@@ -520,8 +814,6 @@ visibility
 created_at
 ```
 
----
-
 ## permissions
 
 ```text
@@ -531,8 +823,6 @@ department_id
 can_access_department_id
 ```
 
----
-
 ## sessions
 
 ```text
@@ -541,8 +831,6 @@ user_id
 token
 expires_at
 ```
-
----
 
 ## audit_logs
 
@@ -557,8 +845,6 @@ ip_address
 created_at
 ```
 
----
-
 ## metrics
 
 ```text
@@ -567,35 +853,6 @@ metric_name
 metric_value
 created_at
 ```
-
----
-
-# Extension Points
-
-## Loader Registry
-
-New document types can be added without modifying ingestion logic.
-
-Example:
-
-```python
-register_loader(".xlsx", ExcelLoader())
-```
-
----
-
-## Vector Store Interface
-
-The application communicates only with VectorStore.
-
-Future vector databases can replace Chroma without changing business services.
-
-Potential replacements:
-
-* Pinecone
-* Weaviate
-* Qdrant
-* pgvector
 
 ---
 
@@ -623,306 +880,239 @@ core/retrieval → chromadb
 
 ## Retrieval Security Model
 
-Authorization is enforced using two independent layers.
+Authorization is enforced using three independent layers.
 
+```text
 Layer 1
-
-Storage-level filtering:
-
-- Chroma metadata filters
-- PostgreSQL visibility filters
-
-Only accessible chunks are eligible for retrieval.
-
+Chroma Metadata Filter
+      │
+      ▼
 Layer 2
+Application Permission Validation
+      │
+      ▼
+Layer 3
+Audit Logging
+```
 
-Application-level validation:
+**Layer 1 — Chroma Metadata Filter**
+
+Storage-level filtering using Chroma metadata filters and PostgreSQL visibility filters. Only accessible chunks are eligible for retrieval.
+
+**Layer 2 — Application Permission Validation**
 
 PermissionService validates every retrieved chunk before reranking.
 
-This defense-in-depth architecture ensures unauthorized content never reaches the language model even if retrieval implementations change.
+**Layer 3 — Audit Logging**
 
-All persistence operations must pass through storage abstractions.
+Every retrieval and generation event is recorded for traceability and compliance review.
+
+This defense-in-depth architecture ensures unauthorized content never reaches the language model even if retrieval implementations change. All persistence operations must pass through storage abstractions.
 
 ---
 
-# Current Platform Capabilities
+# Registry Extension System
 
-Implemented
+The Smart Knowledge Bank uses registry-based extension points to keep major subsystems open for extension while avoiding modifications to existing business logic.
 
-* JWT authentication
-* Role-based authorization
-* Department-aware permissions
-* Hybrid retrieval
-* Cross-Encoder reranking
-* Retrieval quality gates
-* Grounded response generation
-* Citation generation
-* Multi-agent LangGraph workflow
-* Conversation-aware retrieval
-* Session persistence
-* Enterprise audit logging
-* Observability and metrics
-* Administrative dashboard
-* User management
-* Knowledge base management
-* Complete chat interface
-* Frontend role protection
-* Settings page
-* Shared loading spinner component
-* Reusable frontend error cards
-* Consistent empty-state components
-* Session-based chat interface
-* Agent execution reasoning display
-* Confidence visualization
-* Multi-level in-memory caching
-* Parallel research execution
-* Parallel persistence pipeline
-* Request-level performance profiling
-* Permission metadata caching
-* BM25 index caching
+Each registry follows the same principle:
 
+- Register a new implementation
+- Retrieve the implementation through the registry
+- Business logic never depends on concrete classes
 
-## Retrieval Pipeline
-
-The Retrieval Pipeline provides a centralized orchestration layer for knowledge retrieval.
+This allows new capabilities to be added without modifying existing workflows.
 
 ```text
-User Query
-      │
-      ▼
-Pipeline Cache
-      │
-      ▼
-Planner
-      │
-      ▼
-Parallel Research Retrieval
-      │
-      ▼
-Hybrid Retriever
-      │
-      ▼
-Metadata Filtering
-      │
-      ▼
-Permission Validation
-      │
-      ▼
-Cross-Encoder Reranker
-      │
-      ▼
-Retrieval Quality Gate
-      │
-      ▼
-Generator
-      │
-      ▼
-Parallel Persistence
+                Registry System
+
+          Loader Registry
+          Retriever Registry
+          Permission Registry
+          Agent Registry
+          Tool Registry
+
+                     │
+                     ▼
+
+            Business Services
+
+                     │
+                     ▼
+
+           Runtime Resolution
 ```
 
+## Loader Registry
 
----
-
-## Generation Layer
-
-Week 2 introduces the generation layer responsible for producing grounded, permission-aware responses from authorized retrieval results.
+Location:
 
 ```text
-Client
-│
-▼
-Chat Router
-│
-▼
-ChatService
-│
-├──────────────────────────┐
-▼                          ▼
-SessionService        RetrievalPipeline
-                           │
-                           ▼
-                    Hybrid Retrieval
-                           │
-                           ▼
-                 Metadata Filtering
-          (Department + Visibility)
-                           │
-                           ▼
-              Secondary Permission Filter
-                           │
-                           ▼
-                Cross-Encoder Reranker
-                           │
-                           ▼
-                Retrieval Quality Gate
-                           │
-                           ▼
-                      Generator
-                           │
-          ┌────────────────┴────────────────┐
-          ▼                                 ▼
-  Citation Builder                  LLM Provider
-                                            │
-                                            ▼
-                                     Groq Provider
+core/knowledge/loaders/factory.py
 ```
-
-### Responsibilities
-
-#### ChatService
-
-Coordinates the complete RAG request lifecycle.
-
-Responsibilities:
-
-* Session management
-* Message persistence
-* Retrieval execution
-* Response generation
-* Metrics recording
-
----
-
-#### RetrievalPipeline
-
-Executes the complete retrieval workflow.
-
-Responsibilities:
-
-* Hybrid retrieval
-* Metadata filtering
-* Secondary permission validation
-* Cross-encoder reranking
-* Retrieval quality validation
-* Audit logging
-
-The pipeline guarantees that only authorized and sufficiently relevant context reaches the Generator.
-
----
-
-#### SessionService
-
-Manages conversation sessions and validates ownership.
-
----
-
-#### Generator
-
-Transforms authorized retrieval context into grounded natural language responses.
-
-Responsibilities:
-
-* Build prompts
-* Invoke the configured LLM provider
-* Compute response confidence
-* Generate citations
-* Return structured responses
-* Return a fallback response when no authorized or relevant context exists
-
-The Generator never invokes the LLM when retrieval returns no usable context.
-
----
-
-#### Citation Builder
-
-Aggregates citations by document, removes duplicate references, and preserves page and chunk metadata.
-
----
-
-#### LLM Provider
-
-Defines the provider abstraction.
 
 Current implementation:
 
-* Groq (OpenAI-compatible API)
+- PDFLoader
+- DocxLoader
+- TxtLoader
+- MarkdownLoader
 
-Future providers can be added without changing the generation pipeline.
+How to add a new loader:
 
+1. Create a class inheriting `DocumentLoader`.
+2. Implement `load()` and `supported_extension()`.
+3. Register it:
 
-
-## Agent Workflow
-
-## Agent Pipeline (Week 3)
-
-The complete chat workflow combines conversational memory, LangGraph orchestration, retrieval, and grounded response generation.
-
-```text
-Client
-   │
-   ▼
-Chat UI
-   │
-   ▼
-Chat Router
-   │
-   ▼
-ChatService
-   │
-   ▼
-SessionService
-(load history)
-   │
-   ▼
-Conversation Resolver
-(resolve retrieval query)
-   │
-   ▼
-run_agent_pipeline()
-   │
-   ▼
-Planner Agent
-   │
-   ▼
-Research Agent
-   │
-   ▼
-Response Agent
-   │
-   ▼
-Generator
-   │
-   ▼
-Groq Provider
+```python
+register_loader(".xlsx", ExcelLoader)
 ```
 
-Shared AgentState contains:
+Do NOT change:
 
-- original query
-- resolved query
-- conversation history
-- retrieval strategy
-- search queries
-- retrieved chunks
-- citations
-- confidence score
-- confidence level
-- reasoning trace
+- KnowledgeService
+- IngestionService
+- get_loader()
 
-### Agent responsibilities
+The loader registry automatically resolves implementations by file extension.
 
-#### Planner Agent
+## Retriever Registry
 
-- analyzes the request
-- determines retrieval strategy
-- generates optimized search queries
+Location:
 
-#### Research Agent
+```text
+core/retrieval/registry.py
+```
 
-- executes permission-aware retrieval
-- aggregates and deduplicates retrieved chunks
-- preserves retrieval trace
+Current implementation:
 
-#### Response Agent
+- HybridRetriever (default)
 
-- generates grounded responses
-- builds citations
-- computes confidence
-- records execution trace
+Supports runtime injection for testing.
 
+How to add a new retriever:
 
+1. Implement the `Retriever` interface.
+2. Register it:
 
+```python
+register_retriever(
+    "graph",
+    GraphRetriever,
+)
+```
+
+3. Inject it when required:
+
+```python
+inject_retriever("graph")
+```
+
+Do NOT modify:
+
+- RetrievalPipeline
+- ResearchAgent
+
+These always retrieve implementations through the registry.
+
+## Permission Policy Registry
+
+Location:
+
+```text
+core/permissions/registry.py
+```
+
+Current implementation:
+
+- DepartmentPermissionPolicy
+
+How to add a new permission model:
+
+1. Implement `PermissionPolicy`.
+2. Register:
+
+```python
+register_permission_policy(
+    "attribute_based",
+    ABACPolicy,
+)
+```
+
+3. Activate through controlled code configuration.
+
+Do NOT expose policy selection through any public API. Permission enforcement must remain entirely server-controlled.
+
+## Tool Registry
+
+Location:
+
+```text
+tools/registry.py
+```
+
+Current implementation:
+
+Generic `Tool` interface.
+
+Future tools may include:
+
+- Calculator Tool
+- Web Search Tool
+- SQL Tool
+- Knowledge Graph Tool
+
+Register example:
+
+```python
+register_tool(
+    "calculator",
+    CalculatorTool,
+)
+```
+
+Do NOT modify agent implementations when adding tools. Agents should request tools through the registry only.
+
+## Agent Registry
+
+Location:
+
+```text
+agents/registry.py
+```
+
+Current implementation:
+
+- PlannerAgent
+- ResearchAgent
+- ResponseAgent
+
+How to add a new workflow agent:
+
+1. Create a class inheriting `Agent`.
+2. Register:
+
+```python
+register_agent(
+    "reviewer",
+    ReviewerAgent,
+)
+```
+
+3. Add the required workflow edge in `workflow.py`.
+
+No existing agents require modification. This keeps the LangGraph workflow extensible while preserving existing agent implementations.
+
+## Vector Store Interface
+
+The application communicates only with VectorStore. Future vector databases can replace Chroma without changing business services.
+
+Potential replacements:
+
+- Pinecone
+- Weaviate
+- Qdrant
+- pgvector
 
 ---
 
@@ -932,12 +1122,26 @@ The frontend is implemented using Next.js with feature-oriented pages and reusab
 
 ```text
 Frontend
-│
-├── Dashboard
-├── Knowledge Base
-├── Chat
-├── Users
-└── Settings
+   │
+   ▼
+Protected Layout
+   │
+   ▼
+Dashboard
+Knowledge Base
+Chat
+Users
+Audit Logs
+Settings
+   │
+   ▼
+Reusable Components
+   │
+   ▼
+Services
+   │
+   ▼
+API
 ```
 
 Application state is divided into:
@@ -946,7 +1150,7 @@ Application state is divided into:
 - API Services
 - Feature Components
 
-## Chat UI architecture
+## Chat UI Architecture
 
 ```text
 Chat Page
@@ -975,8 +1179,6 @@ API communication is centralized through service modules that encapsulate all HT
 
 This separation keeps presentation components independent from backend implementation details while allowing future UI changes without affecting business logic.
 
-
-
 ## Shared UI Infrastructure
 
 To provide a consistent user experience across all pages, the frontend reuses common presentation components.
@@ -995,190 +1197,97 @@ Pages remain focused on business logic while presentation concerns are shared th
 
 ---
 
-# Registry Extension System
+# Current Platform Summary
 
-The Smart Knowledge Bank uses registry-based extension points to keep major subsystems open for extension while avoiding modifications to existing business logic.
+**Architecture**
 
-Each registry follows the same principle:
+- Multi-Agent AI Workflow
+- Hybrid Retrieval
+- Registry-Based Extensions
+- Layered Backend
+- Next.js Frontend
 
-- Register a new implementation
-- Retrieve the implementation through the registry
-- Business logic never depends on concrete classes
+**Storage**
 
-This allows new capabilities to be added without modifying existing workflows.
+- PostgreSQL
+- ChromaDB
+- Local File Storage
 
----
+**Security**
 
-## Loader Registry
+- JWT
+- RBAC
+- Department Permissions
+- Three-Layer Authorization
 
-Location
+**AI**
 
-```
-core/knowledge/loaders/factory.py
-```
+- LangGraph
+- Planner Agent
+- Research Agent
+- Response Agent
 
-Current implementation
+**Performance**
 
-- PDFLoader
-- DocxLoader
-- TxtLoader
-- MarkdownLoader
+- Pipeline Cache
+- BM25 Cache
+- Parallel Retrieval
+- Parallel Persistence
+- Profiling
 
-How to add a new loader
+## Current Platform Capabilities
 
-1. Create a class inheriting `DocumentLoader`.
-2. Implement `load()` and `supported_extension()`.
-3. Register it:
+Implemented:
 
-```python
-register_loader(".xlsx", ExcelLoader)
-```
-
-Do NOT change
-
-- KnowledgeService
-- IngestionService
-- get_loader()
-
-The loader registry automatically resolves implementations by file extension.
-
----
-
-## Retriever Registry
-
-Location
-
-```
-core/retrieval/registry.py
-```
-
-Current implementation
-
-- HybridRetriever (default)
-
-Supports runtime injection for testing.
-
-How to add a new retriever
-
-1. Implement the `Retriever` interface.
-2. Register it:
-
-```python
-register_retriever(
-    "graph",
-    GraphRetriever,
-)
-```
-
-3. Inject it when required:
-
-```python
-inject_retriever("graph")
-```
-
-Do NOT modify
-
-- RetrievalPipeline
-- ResearchAgent
-
-These always retrieve implementations through the registry.
+- JWT authentication
+- Role-based authorization
+- Department-aware permissions
+- Hybrid retrieval
+- Cross-Encoder reranking
+- Retrieval quality gates
+- Grounded response generation
+- Citation generation
+- Multi-agent LangGraph workflow
+- Conversation-aware retrieval
+- Session persistence
+- Enterprise audit logging
+- Observability and metrics
+- Administrative dashboard
+- User management
+- Knowledge base management
+- Complete chat interface
+- Frontend role protection
+- Settings page
+- Shared loading spinner component
+- Reusable frontend error cards
+- Consistent empty-state components
+- Session-based chat interface
+- Agent execution reasoning display
+- Confidence visualization
+- Multi-level in-memory caching
+- Parallel research execution
+- Parallel persistence pipeline
+- Request-level performance profiling
+- Permission metadata caching
+- BM25 index caching
 
 ---
 
-## Permission Policy Registry
+# Architectural Evolution
 
-Location
-
+```text
+Week 1
+Knowledge Infrastructure
+      │
+      ▼
+Week 2
+Permission-Aware RAG
+      │
+      ▼
+Week 3
+Multi-Agent AI
+      │
+      ▼
+Week 4
+Performance & Enterprise Platform
 ```
-core/permissions/registry.py
-```
-
-Current implementation
-
-- DepartmentPermissionPolicy
-
-How to add a new permission model
-
-1. Implement `PermissionPolicy`.
-2. Register:
-
-```python
-register_permission_policy(
-    "attribute_based",
-    ABACPolicy,
-)
-```
-
-3. Activate through controlled code configuration.
-
-Do NOT expose policy selection through any public API.
-
-Permission enforcement must remain entirely server-controlled.
-
----
-
-## Tool Registry
-
-Location
-
-```
-tools/registry.py
-```
-
-Current implementation
-
-Generic Tool interface.
-
-Future tools may include
-
-- Calculator Tool
-- Web Search Tool
-- SQL Tool
-- Knowledge Graph Tool
-
-Register example
-
-```python
-register_tool(
-    "calculator",
-    CalculatorTool,
-)
-```
-
-Do NOT modify agent implementations when adding tools.
-
-Agents should request tools through the registry only.
-
----
-
-## Agent Registry
-
-Location
-
-```
-agents/registry.py
-```
-
-Current implementation
-
-- PlannerAgent
-- ResearchAgent
-- ResponseAgent
-
-How to add a new workflow agent
-
-1. Create a class inheriting `Agent`.
-2. Register:
-
-```python
-register_agent(
-    "reviewer",
-    ReviewerAgent,
-)
-```
-
-3. Add the required workflow edge in `workflow.py`.
-
-No existing agents require modification.
-
-This keeps the LangGraph workflow extensible while preserving existing agent implementations.
