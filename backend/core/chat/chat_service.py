@@ -23,7 +23,7 @@ from core.config import settings
 
 from core.cache.pipeline_cache import PipelineCache
 
-# from core.profiling.profiler import profiler
+from core.profiling.profiler import profiler
 
 
 class ChatService:
@@ -178,14 +178,14 @@ class ChatService:
         """
 
         start_time = time.perf_counter()
-        # profiler.reset()
+        profiler.reset()
 
-        # profiler.start("Session Lookup")
+        profiler.start("Session Lookup")
         session = await self.session_service.get_or_create_session(
             session_id=session_id,
             user_id=current_user.id,
         )
-        # profiler.stop("Session Lookup")
+        profiler.stop("Session Lookup")
 
         cached = self.pipeline_cache.get(
             user_id=current_user.id,
@@ -229,14 +229,14 @@ class ChatService:
             #
             # Execute retrieval + generation
             #
-            # profiler.start("Complete Agent Workflow")
+            profiler.start("Complete Agent Workflow")
             state = await run_agent_pipeline(
                 query=message,
                 user_context=current_user,
                 session_id=str(session["id"]),
                 pipeline=self.pipeline,
             )
-            # profiler.stop("Complete Agent Workflow")
+            profiler.stop("Complete Agent Workflow")
 
             latency = (
                 time.perf_counter() - start_time
@@ -245,7 +245,7 @@ class ChatService:
             #
             # Persist everything in parallel.
             #
-            # profiler.start("Parallel Persistence")
+            profiler.start("Parallel Persistence")
 
             results = await asyncio.gather(
 
@@ -293,7 +293,7 @@ class ChatService:
                 return_exceptions=True,
             )
 
-            # profiler.stop("Parallel Persistence")
+            profiler.stop("Parallel Persistence")
 
             #
             # Preserve existing failure behaviour.

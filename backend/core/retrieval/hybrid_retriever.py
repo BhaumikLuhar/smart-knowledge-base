@@ -8,7 +8,7 @@ from core.retrieval.bm25_retriever import BM25Retriever
 
 from storage.sql.sql_store import SQLStore
 
-# from core.profiling.profiler import profiler
+from core.profiling.profiler import profiler
 
 
 class HybridRetriever(Retriever):
@@ -45,7 +45,7 @@ class HybridRetriever(Retriever):
         
         top_k = top_k or settings.CANDIDATE_TOP_K
 
-        # profiler.start("Vector + BM25 Retrieval")
+        profiler.start("Vector + BM25 Retrieval")
         vector_results, bm25_results = await asyncio.gather(
             self.vector_retriever.retrieve(
                 query=query,
@@ -58,14 +58,14 @@ class HybridRetriever(Retriever):
                 top_k=top_k,
             ),
         )
-        # profiler.stop("Vector + BM25 Retrieval")
+        profiler.stop("Vector + BM25 Retrieval")
 
         merged: dict[str, dict] = {}
         
         #
         # Add vector results
         #
-        # profiler.start("Hybrid Merge")
+        profiler.start("Hybrid Merge")
         for chunk in vector_results:
             chunk_id= chunk["chunk_id"]
 
@@ -116,6 +116,6 @@ class HybridRetriever(Retriever):
             key=lambda x: x["score"],
             reverse=True
         )
-        # profiler.stop("Hybrid Merge")
+        profiler.stop("Hybrid Merge")
 
         return results[:top_k]

@@ -5,7 +5,7 @@ import re
 from core.generation.llm_provider import get_llm
 from core.generation.prompts import QUERY_RESOLVER_SYSTEM_PROMPT_V3
 
-# from core.profiling.profiler import profiler
+from core.profiling.profiler import profiler
 
 
 logger = logging.getLogger(__name__)
@@ -317,12 +317,12 @@ class QueryResolver:
         """
         Return a standalone query suitable for retrieval.
         """
-        # profiler.start("Query Resolver Decision")
+        profiler.start("Query Resolver Decision")
         needs_resolution, decision_reason = self._resolution_decision(
             query,
             history,
         )
-        # profiler.stop("Query Resolver Decision")
+        profiler.stop("Query Resolver Decision")
 
         logger.debug(
             "QueryResolver decision: %s",
@@ -356,19 +356,19 @@ class QueryResolver:
             return query
 
         try:
-            # profiler.start("Query Resolver LLM")
+            profiler.start("Query Resolver LLM")
             rewrite_attempt = self._rewrite_with_llm(
                 query,
                 history,
             )
-            # profiler.stop("Query Resolver LLM")
+            profiler.stop("Query Resolver LLM")
 
-            # profiler.start("Query Resolver Validation")
+            profiler.start("Query Resolver Validation")
             is_valid, validation_reason = self._is_valid_rewrite(
                 query,
                 rewrite_attempt["raw_output"],
             )
-            # profiler.stop("Query Resolver Validation")
+            profiler.stop("Query Resolver Validation")
 
             if is_valid:
                 final_query = self._finalize_rewrite(

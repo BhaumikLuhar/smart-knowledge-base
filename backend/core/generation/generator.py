@@ -5,7 +5,7 @@ from core.generation.prompts import SYSTEM_PROMPT_V1
 from core.generation.schemas import GeneratorResponse
 from core.config import settings
 
-# from core.profiling.profiler import profiler
+from core.profiling.profiler import profiler
 
 
 class Generator:
@@ -59,7 +59,7 @@ class Generator:
                 model_used=None,
             )
         
-        # profiler.start("Generator Context Generation")
+        profiler.start("Generator Context Generation")
         history = history or []
 
         #
@@ -98,13 +98,13 @@ class Generator:
             *history,
             user_message,
         ]
-        # profiler.stop("Generator Context Generation")
+        profiler.stop("Generator Context Generation")
 
-        # profiler.start("Generator LLM Generation")
+        profiler.start("Generator LLM Generation")
         answer, tokens = get_llm().generate(
             messages
         )
-        # profiler.stop("Generator LLM Generation")
+        profiler.stop("Generator LLM Generation")
 
         #
         # Confidence uses retrieval confidence rather
@@ -141,7 +141,7 @@ class Generator:
                 min(round(top_score * 100, 1), 49.0),
             )
 
-        # profiler.start("Generator Response Building")
+        profiler.start("Generator Response Building")
         response = GeneratorResponse(
             answer=answer,
             citations=build_citations(chunks),
@@ -151,5 +151,5 @@ class Generator:
             fallback=False,
             model_used=settings.GROQ_MODEL,
         )
-        # profiler.stop("Generator Response Building")
+        profiler.stop("Generator Response Building")
         return response

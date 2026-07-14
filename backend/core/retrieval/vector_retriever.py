@@ -7,7 +7,7 @@ from core.retrieval.embedder import Embedder
 from storage.sql.sql_store import SQLStore
 from storage.vector.vector_store import VectorStore
 
-# from core.profiling.profiler import profiler
+from core.profiling.profiler import profiler
 
 class VectorRetriever(Retriever):
     """
@@ -40,23 +40,23 @@ class VectorRetriever(Retriever):
         """
 
         top_k = top_k or settings.CANDIDATE_TOP_K
-        # profiler.start("Query Embedding")
+        profiler.start("Query Embedding")
         query_embedding = Embedder.get_instance().embed_query(query)
-        # profiler.stop("Query Embedding")
+        profiler.stop("Query Embedding")
 
-        # profiler.start("Permission Filter Build")
+        profiler.start("Permission Filter Build")
         chroma_filter = await self.permission_service.get_user_context_filters(user_context)
-        # profiler.stop("Permission Filter Build")
+        profiler.stop("Permission Filter Build")
 
-        # profiler.start("Chroma Query")
+        profiler.start("Chroma Query")
         results = VectorStore.get_instance().query(
             query_embedding=query_embedding,
             top_k=top_k,
             where=chroma_filter
         )
-        # profiler.stop("Chroma Query")
+        profiler.stop("Chroma Query")
 
-        # profiler.start("Vector Result Conversion")
+        profiler.start("Vector Result Conversion")
         chunks=[]
 
         documents=results.get("documents",[[]])[0]
@@ -84,6 +84,6 @@ class VectorRetriever(Retriever):
             chunks.append(chunk)
 
         chunks.sort(key=lambda x: x["score"], reverse=True)
-        # profiler.stop("Vector Result Conversion")
+        profiler.stop("Vector Result Conversion")
 
         return chunks

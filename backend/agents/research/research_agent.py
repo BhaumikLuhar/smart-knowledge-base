@@ -12,7 +12,7 @@ from core.observability.collector import (
     ObservabilityCollector,
 )
 
-# from core.profiling.profiler import profiler
+from core.profiling.profiler import profiler
 
 
 class ResearchAgent(Agent):
@@ -68,9 +68,9 @@ class ResearchAgent(Agent):
         #
         unique_chunks: dict[str, dict] = {}
 
-        # profiler.start(f"Research Retrieval [{", ".join(
-        #     q[:30] for q in queries
-        # )}]")
+        profiler.start(f"Research Retrieval [{", ".join(
+            q[:30] for q in queries
+        )}]")
         results = await asyncio.gather(
             *[
                 self.pipeline.retrieve_and_filter(
@@ -80,9 +80,9 @@ class ResearchAgent(Agent):
                 for query in queries
             ]
         )
-        # profiler.stop(f"Research Retrieval [{", ".join(
-        #     q[:30] for q in queries
-        # )}]")
+        profiler.stop(f"Research Retrieval [{", ".join(
+            q[:30] for q in queries
+        )}]")
 
         for result in results:
             for chunk in result["chunks"]:
@@ -107,7 +107,7 @@ class ResearchAgent(Agent):
                 ):
 
                     unique_chunks[chunk_id] = chunk
-        # profiler.start("Research Deduplication + Sorting")
+        profiler.start("Research Deduplication + Sorting")
         final_chunks = sorted(
             unique_chunks.values(),
             key=lambda chunk: chunk.get(
@@ -118,7 +118,7 @@ class ResearchAgent(Agent):
         )[: settings.FINAL_TOP_K]
 
         state["retrieved_chunks"] = final_chunks
-        # profiler.stop("Research Deduplication + Sorting")
+        profiler.stop("Research Deduplication + Sorting")
 
         state["no_results"] = len(final_chunks) == 0
 

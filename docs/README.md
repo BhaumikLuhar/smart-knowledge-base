@@ -1217,7 +1217,7 @@ Grounded Answer
 
 > **Coming Soon**
 
-The following screenshots will be added after deployment and UI polish.
+The following screenshots are added.
 
 ```
 docs/images/
@@ -1226,9 +1226,10 @@ docs/images/
 ├── dashboard.png
 ├── knowledge-base.png
 ├── chat.png
-├── users.png
-├── audit-logs.png
-└── evaluation.png
+├── users.png 
+├── settings.png 
+├── performance.png 
+└── audit-logs.png
 ```
 
 ---

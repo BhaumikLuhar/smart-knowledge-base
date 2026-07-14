@@ -5,7 +5,7 @@ from sentence_transformers import CrossEncoder
 from core.config import settings
 from core.retrieval.base_reranker import Reranker
 
-# from core.profiling.profiler import profiler
+from core.profiling.profiler import profiler
 
 
 logger = logging.getLogger(__name__)
@@ -83,15 +83,15 @@ class CrossEncoderReranker(Reranker):
         #
         # Batch inference
         #
-        # profiler.start("CrossEncoder Predict")
+        profiler.start("CrossEncoder Predict")
         scores = self.model.predict(
             pairs,
             convert_to_numpy=True,
             show_progress_bar=False
         )
-        # profiler.stop("CrossEncoder Predict")
+        profiler.stop("CrossEncoder Predict")
 
-        # profiler.start("CrossEncoder Post Processing")
+        profiler.start("CrossEncoder Post Processing")
         reranked = []
 
         for chunk, score in zip(candidates, scores):
@@ -119,6 +119,6 @@ class CrossEncoderReranker(Reranker):
             "CrossEncoder reranked %d candidates.",
             len(reranked)
         )
-        # profiler.stop("CrossEncoder Post Processing")
+        profiler.stop("CrossEncoder Post Processing")
 
         return reranked
